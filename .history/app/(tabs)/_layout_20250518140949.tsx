@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/clerk-expo";
 import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import React from "react";
@@ -76,4 +75,7 @@ export default function TabLayout() {
       <Tabs.Screen name="CourseLearningScreen" options={{ href: null }} />
     </Tabs>
   );
+}
+function useAuth(): { isSignedIn: any } {
+  throw new Error("Function not implemented.");
 }
