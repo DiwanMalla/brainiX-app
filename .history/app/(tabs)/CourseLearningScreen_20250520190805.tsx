@@ -1,5 +1,5 @@
 import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
+import ContentTabs from "@/components/my-learning/ContentTab";
 import CourseHeader from "@/components/my-learning/CourseHeader";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -7,17 +7,8 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
 import { debounce } from "lodash";
-import { ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import {
-  Dimensions,
-  FlatList,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { FlatList, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import Toast from "react-native-toast-message";
 
 type RootStackParamList = {
@@ -47,7 +38,6 @@ export default function CourseLearningScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const showToast = (
     title: string,
@@ -350,6 +340,17 @@ export default function CourseLearningScreen() {
 
   const renderItem = () => (
     <View>
+      <ContentDisplay
+        lesson={currentLesson}
+        normalizeYouTubeUrl={normalizeYouTubeUrl}
+        isValidYouTubeUrl={isValidYouTubeUrl}
+        handleProgress={handleProgress}
+        courseId={course.id}
+        setVideoError={setVideoError}
+      />
+      {videoError && currentLesson?.type === "VIDEO" && (
+        <Text style={styles.errorText}>Error loading video: {videoError}</Text>
+      )}
       <CourseHeader course={course} />
       <ContentTabs
         course={course}
@@ -365,51 +366,19 @@ export default function CourseLearningScreen() {
     </View>
   );
 
-  const renderMinimizedContent = () => (
-    <View style={styles.minimizedContainer}>
-      <TouchableOpacity
-        onPress={() => setIsMinimized(false)}
-        style={styles.restoreButton}
-      >
-        <ChevronUp color="#fff" size={20} />
-      </TouchableOpacity>
-      <Text style={styles.minimizedText}>My Learning</Text>
-      <Text style={styles.minimizedCourse}>{course.title}</Text>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      {!isMinimized && (
-        <ContentDisplay
-          lesson={currentLesson}
-          normalizeYouTubeUrl={normalizeYouTubeUrl}
-          isValidYouTubeUrl={isValidYouTubeUrl}
-          handleProgress={handleProgress}
-          courseId={course.id}
-          setVideoError={setVideoError}
-          onMinimize={() => setIsMinimized(true)}
-        />
-      )}
-      {videoError && currentLesson?.type === "VIDEO" && (
-        <Text style={styles.errorText}>Error loading video: {videoError}</Text>
-      )}
-      {isMinimized ? (
-        renderMinimizedContent()
-      ) : (
-        <FlatList
-          data={[{ key: "content" }]}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.key}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <FlatList
+        data={[{ key: "content" }]} // Single item to render the content
+        renderItem={renderItem}
+        keyExtractor={(item) => item.key}
+        ListHeaderComponent={<View style={styles.headerSpacer} />}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 }
-
-const { height } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
@@ -417,8 +386,108 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
+    paddingBottom: 20,
+  },
+  headerSpacer: {
+    height: 200, // Space for the fixed video player
+  },
+  contentDisplayContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    backgroundColor: "#000",
+    zIndex: 10,
+  },
+  headerContainer: {
+    padding: 10,
+    backgroundColor: "#1c1c1e",
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
+  },
+  courseTitle: {
+    fontSize: 22,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  instructorName: {
+    fontSize: 14,
+    color: "#ccc",
+    marginTop: 2,
+  },
+  tabsContainer: {
+    flex: 1,
+    backgroundColor: "#1c1c1e",
+  },
+  tabBar: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#333",
+    backgroundColor: "#1c1c1e",
+  },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#a500ff",
+  },
+  tabText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "500",
+  },
+  tabContent: {
+    padding: 10,
+  },
+  lessonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    backgroundColor: "#1c1c1e",
+    borderRadius: 10,
+    padding: 10,
+  },
+  lessonItem: {
+    flex: 1,
+    padding: 8,
+  },
+  activeLesson: {
+    backgroundColor: "#2c2c2e",
+  },
+  lessonTitle: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  lessonStatus: {
+    fontSize: 14,
+    color: "#ccc",
+    marginTop: 4,
+  },
+  markCompleteButton: {
+    padding: 8,
+    backgroundColor: "#a500ff",
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  completedButton: {
+    backgroundColor: "#00ff88",
+    opacity: 0.7,
+  },
+  markCompleteText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: "#fff",
+    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -435,37 +504,5 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     backgroundColor: "#1c1c1e",
     padding: 10,
-    position: "absolute",
-    top: height * 0.3,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-  },
-  minimizedContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    zIndex: 30,
-  },
-  restoreButton: {
-    padding: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 15,
-  },
-  minimizedText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  minimizedCourse: {
-    fontSize: 14,
-    color: "#ccc",
   },
 });

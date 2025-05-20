@@ -1,23 +1,13 @@
-import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
-import CourseHeader from "@/components/my-learning/CourseHeader";
+import LessonContent from "@/components/my-learning/LessonContent";
+import VideoPlayer from "@/components/my-learning/VideoPlayer"; // Uncomment if reintegrating
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
 import { debounce } from "lodash";
-import { ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import {
-  Dimensions,
-  FlatList,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import Toast from "react-native-toast-message";
 
 type RootStackParamList = {
@@ -44,10 +34,13 @@ export default function CourseLearningScreen() {
   const [activeLesson, setActiveLesson] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const showToast = (
     title: string,
@@ -68,7 +61,9 @@ export default function CourseLearningScreen() {
       const youtubeRegex =
         /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
       const match = url.match(youtubeRegex);
-      if (match && match[1]) return `https://www.youtube.com/embed/${match[1]}`;
+      if (match && match[1]) {
+        return `https://www.youtube.com/embed/${match[1]}`;
+      }
       return url;
     } catch (err) {
       console.error("normalizeYouTubeUrl: Error", err);
@@ -87,8 +82,13 @@ export default function CourseLearningScreen() {
   };
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded) {
+      console.log("useEffect: Waiting for auth to load");
+      return;
+    }
+
     if (!isSignedIn || !user) {
+      console.log("useEffect: User not signed in, redirecting to Auth");
       showToast(
         "Authentication Required",
         "Please sign in to access this course.",
@@ -103,19 +103,28 @@ export default function CourseLearningScreen() {
 
     const fetchCourse = async () => {
       setIsLoading(true);
+      console.log("useEffect: Fetching course", { slug });
       try {
         const token = await getToken();
         const res = await fetch(`${API_BASE_URL}/api/courses/${slug}/content`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Failed to fetch course");
+        console.log("fetchCourse: API response", data);
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to fetch course");
+        }
         setCourse(data);
+
         if (data.modules[0]?.lessons[0]) {
           setActiveModule(0);
           setActiveLesson(0);
+          // Reset video loading state when fetching a new course
           setIsVideoLoading(data.modules[0].lessons[0].type === "VIDEO");
         }
+
         const totalLessons = data.modules.reduce(
           (sum: number, module: Module) => sum + module.lessons.length,
           0
@@ -128,11 +137,18 @@ export default function CourseLearningScreen() {
             ).length,
           0
         );
-        setProgress(
-          totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0
-        );
-      } catch (err) {
-        console.error("Course fetch error", err);
+        const newProgress =
+          totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+        setProgress(newProgress);
+        console.log("useEffect: Course fetched", {
+          courseId: data.id,
+          progress: newProgress,
+        });
+      } catch (err: unknown) {
+        console.error("useEffect: Course fetch error", {
+          message: err instanceof Error ? err.message : "Unknown error",
+          slug,
+        });
         showToast(
           "Error",
           err instanceof Error ? err.message : "Unable to load course.",
@@ -160,21 +176,48 @@ export default function CourseLearningScreen() {
   }, [isLoaded, isSignedIn, slug, navigation]);
 
   useEffect(() => {
-    if (!course || !course.modules[activeModule]?.lessons[activeLesson]) return;
+    if (!course || !course.modules[activeModule]?.lessons[activeLesson]) {
+      console.log("useEffect: No course or lesson for notes fetch", {
+        course,
+        activeModule,
+        activeLesson,
+      });
+      return;
+    }
+
+    // Reset video loading state when switching lessons
     const currentLesson = course.modules[activeModule].lessons[activeLesson];
     setIsVideoLoading(currentLesson.type === "VIDEO");
 
     const fetchNotes = async () => {
       try {
+        const lessonId = currentLesson.id;
+        console.log("useEffect: Fetching notes", {
+          courseId: course.id,
+          lessonId,
+        });
         const token = await getToken();
         const res = await fetch(
-          `${API_BASE_URL}/api/courses/notes?courseId=${course.id}&lessonId=${currentLesson.id}`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          `${API_BASE_URL}/api/courses/notes?courseId=${course.id}&lessonId=${lessonId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        if (!res.ok) throw new Error("Failed to fetch notes");
-        setNotes(await res.json());
-      } catch (err) {
-        console.error("Notes fetch error", err);
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to fetch notes");
+        }
+        const data = await res.json();
+        setNotes(data);
+        console.log("useEffect: Notes fetched", { notesCount: data.length });
+      } catch (err: unknown) {
+        console.error("useEffect: Notes fetch error", {
+          message: err instanceof Error ? err.message : "Unknown error",
+          courseId: course?.id,
+          lessonId: course?.modules[activeModule]?.lessons[activeLesson]?.id,
+        });
         showToast(
           "Error",
           err instanceof Error ? err.message : "Unable to load notes.",
@@ -188,11 +231,24 @@ export default function CourseLearningScreen() {
 
   const markLessonComplete = async () => {
     if (!course || !course.modules[activeModule]?.lessons[activeLesson]) {
+      console.log("markLessonComplete: Invalid course or lesson", {
+        course,
+        activeModule,
+        activeLesson,
+      });
       showToast("Error", "No lesson selected.", "destructive");
       return;
     }
 
     const currentLesson = course.modules[activeModule].lessons[activeLesson];
+    console.log("markLessonComplete: Starting", {
+      courseId: course.id,
+      lessonId: currentLesson.id,
+      activeModule,
+      activeLesson,
+      isCompleted: currentLesson.progress[0]?.completed || false,
+    });
+
     if (currentLesson.progress[0]?.completed) {
       showToast(
         "Lesson Already Completed",
@@ -216,12 +272,25 @@ export default function CourseLearningScreen() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to update progress");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to update progress");
+      }
+
       const updatedLesson = {
         ...currentLesson,
-        progress: [{ completed: true, completedAt: new Date() }],
+        progress: currentLesson.progress.length
+          ? [
+              {
+                ...currentLesson.progress[0],
+                completed: true,
+                completedAt: new Date(),
+              },
+            ]
+          : [{ completed: true, completedAt: new Date() }],
         completed: true,
       };
+
       setCourse((prev) => {
         if (!prev) return prev;
         const newModules = [...prev.modules];
@@ -245,14 +314,14 @@ export default function CourseLearningScreen() {
             .length,
         0
       );
-      setProgress(
-        totalLessons > 0 ? ((completedLessons + 1) / totalLessons) * 100 : 0
-      );
+      const newProgress =
+        totalLessons > 0 ? ((completedLessons + 1) / totalLessons) * 100 : 0;
+      setProgress(newProgress);
 
       showToast(
         "Lesson Completed",
         `${currentLesson.title} marked as complete! Progress: ${Math.round(
-          progress
+          newProgress
         )}%`
       );
 
@@ -269,8 +338,10 @@ export default function CourseLearningScreen() {
           course.modules[activeModule + 1].lessons[0].type === "VIDEO"
         );
       }
-    } catch (err) {
-      console.error("markLessonComplete: Error", err);
+    } catch (err: unknown) {
+      console.error("markLessonComplete: Error", {
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
       showToast(
         "Error",
         err instanceof Error
@@ -283,11 +354,20 @@ export default function CourseLearningScreen() {
 
   const handleProgress = debounce(
     async (state: { playedSeconds: number; played: number }) => {
-      if (!course || !course.modules[activeModule]?.lessons[activeLesson])
+      if (!course || !course.modules[activeModule]?.lessons[activeLesson]) {
+        console.log("handleProgress: No course or lesson available");
         return;
+      }
+
       const currentLesson = course.modules[activeModule].lessons[activeLesson];
       const watchedSeconds = Math.floor(state.playedSeconds);
       const lastPosition = watchedSeconds;
+
+      console.log("handleProgress: Updating", {
+        courseId: course.id,
+        lessonId: currentLesson.id,
+        watchedSeconds,
+      });
 
       try {
         const token = await getToken();
@@ -306,6 +386,7 @@ export default function CourseLearningScreen() {
         });
         if (!res.ok) {
           const errorData = await res.json();
+          console.error("handleProgress: Failed", errorData);
           showToast(
             "Error",
             errorData.error || "Failed to update video progress.",
@@ -319,7 +400,18 @@ export default function CourseLearningScreen() {
               ...newModules[activeModule],
               lessons: newModules[activeModule].lessons.map((lesson, lIdx) =>
                 lIdx === activeLesson
-                  ? { ...lesson, progress: [{ watchedSeconds, lastPosition }] }
+                  ? {
+                      ...lesson,
+                      progress: lesson.progress.length
+                        ? [
+                            {
+                              ...lesson.progress[0],
+                              watchedSeconds,
+                              lastPosition,
+                            },
+                          ]
+                        : [{ watchedSeconds, lastPosition }],
+                    }
                   : lesson
               ),
             };
@@ -334,6 +426,48 @@ export default function CourseLearningScreen() {
     15000
   );
 
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim()) {
+      console.log("sendChatMessage: Empty message, aborting");
+      return;
+    }
+
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/courses/${slug}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ content: chatMessage }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send message");
+      }
+
+      showToast(
+        "Message Sent",
+        "Your message has been sent to the discussion."
+      );
+      setChatMessage("");
+    } catch (err: unknown) {
+      console.error("sendChatMessage: Error", {
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
+      showToast(
+        "Error",
+        err instanceof Error ? err.message : "Unable to send message.",
+        "destructive"
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -344,81 +478,60 @@ export default function CourseLearningScreen() {
     );
   }
 
-  if (!course) return null;
+  if (!course) {
+    return null;
+  }
 
   const currentLesson = course.modules[activeModule]?.lessons[activeLesson];
 
-  const renderItem = () => (
-    <View>
-      <CourseHeader course={course} />
-      <ContentTabs
-        course={course}
-        activeModule={activeModule}
-        activeLesson={activeLesson}
-        setActiveModule={setActiveModule}
-        setActiveLesson={setActiveLesson}
-        notes={notes}
-        setNotes={setNotes}
-        markLessonComplete={markLessonComplete}
-        setIsVideoLoading={setIsVideoLoading}
-      />
-    </View>
-  );
-
-  const renderMinimizedContent = () => (
-    <View style={styles.minimizedContainer}>
-      <TouchableOpacity
-        onPress={() => setIsMinimized(false)}
-        style={styles.restoreButton}
-      >
-        <ChevronUp color="#fff" size={20} />
-      </TouchableOpacity>
-      <Text style={styles.minimizedText}>My Learning</Text>
-      <Text style={styles.minimizedCourse}>{course.title}</Text>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      {!isMinimized && (
-        <ContentDisplay
+      <View style={styles.mainContent}>
+        {videoError && currentLesson?.type === "VIDEO" && (
+          <Text style={styles.errorText}>
+            Error loading video: {videoError}
+          </Text>
+        )}
+        {currentLesson?.type === "VIDEO" && (
+          <VideoPlayer
+            lesson={currentLesson}
+            normalizeYouTubeUrl={normalizeYouTubeUrl}
+            isValidYouTubeUrl={isValidYouTubeUrl}
+            handleProgress={handleProgress}
+            courseId={course.id}
+          />
+        )}
+        <LessonContent
+          course={course}
           lesson={currentLesson}
-          normalizeYouTubeUrl={normalizeYouTubeUrl}
-          isValidYouTubeUrl={isValidYouTubeUrl}
-          handleProgress={handleProgress}
-          courseId={course.id}
+          activeModule={activeModule}
+          activeLesson={activeLesson}
+          setActiveModule={setActiveModule}
+          setActiveLesson={setActiveLesson}
+          notes={notes}
+          setNotes={setNotes}
           setVideoError={setVideoError}
-          onMinimize={() => setIsMinimized(true)}
+          setIsVideoLoading={setIsVideoLoading}
+          markLessonComplete={markLessonComplete}
         />
-      )}
-      {videoError && currentLesson?.type === "VIDEO" && (
-        <Text style={styles.errorText}>Error loading video: {videoError}</Text>
-      )}
-      {isMinimized ? (
-        renderMinimizedContent()
-      ) : (
-        <FlatList
-          data={[{ key: "content" }]}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.key}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+        {showSidebar && (
+          <View style={styles.sidebar}>
+            {/* <CourseContentSidebar ... /> */}
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
-const { height } = Dimensions.get("window");
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#fff",
   },
-  contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
+  mainContent: {
+    flex: 1,
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -427,45 +540,17 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: "#fff",
+    color: "#333",
   },
   errorText: {
     color: "red",
     textAlign: "center",
-    marginVertical: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
-    position: "absolute",
-    top: height * 0.3,
-    left: 0,
-    right: 0,
-    zIndex: 20,
+    marginBottom: 10,
   },
-  minimizedContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
+  sidebar: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    zIndex: 30,
-  },
-  restoreButton: {
-    padding: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 15,
-  },
-  minimizedText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  minimizedCourse: {
-    fontSize: 14,
-    color: "#ccc",
   },
 });

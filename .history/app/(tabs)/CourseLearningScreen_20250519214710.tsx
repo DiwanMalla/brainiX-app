@@ -1,23 +1,13 @@
-import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
-import CourseHeader from "@/components/my-learning/CourseHeader";
-import { Course, Lesson, Module, Note } from "@/types/my-learning";
+import LessonContent from "@/components/my-learning/LessonContent";
+import VideoPlayer from "@/components/my-learning/VideoPlayer"; // Uncomment if reintegrating
+import { Course, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
 import { debounce } from "lodash";
-import { ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import {
-  Dimensions,
-  FlatList,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 import Toast from "react-native-toast-message";
 
 type RootStackParamList = {
@@ -44,10 +34,13 @@ export default function CourseLearningScreen() {
   const [activeLesson, setActiveLesson] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [showChat, setShowChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [showSidebar, setShowSidebar] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const showToast = (
     title: string,
@@ -68,7 +61,9 @@ export default function CourseLearningScreen() {
       const youtubeRegex =
         /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
       const match = url.match(youtubeRegex);
-      if (match && match[1]) return `https://www.youtube.com/embed/${match[1]}`;
+      if (match && match[1]) {
+        return `https://www.youtube.com/embed/${match[1]}`;
+      }
       return url;
     } catch (err) {
       console.error("normalizeYouTubeUrl: Error", err);
@@ -117,15 +112,14 @@ export default function CourseLearningScreen() {
           setIsVideoLoading(data.modules[0].lessons[0].type === "VIDEO");
         }
         const totalLessons = data.modules.reduce(
-          (sum: number, module: Module) => sum + module.lessons.length,
+          (sum, module) => sum + module.lessons.length,
           0
         );
         const completedLessons = data.modules.reduce(
-          (sum: number, module: Module) =>
+          (sum, module) =>
             sum +
-            module.lessons.filter(
-              (lesson: Lesson) => lesson.progress[0]?.completed
-            ).length,
+            module.lessons.filter((lesson) => lesson.progress[0]?.completed)
+              .length,
           0
         );
         setProgress(
@@ -319,7 +313,10 @@ export default function CourseLearningScreen() {
               ...newModules[activeModule],
               lessons: newModules[activeModule].lessons.map((lesson, lIdx) =>
                 lIdx === activeLesson
-                  ? { ...lesson, progress: [{ watchedSeconds, lastPosition }] }
+                  ? {
+                      ...lesson,
+                      progress: [{ watchedSeconds, lastPosition }],
+                    }
                   : lesson
               ),
             };
@@ -333,6 +330,37 @@ export default function CourseLearningScreen() {
     },
     15000
   );
+
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim()) return;
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `${API_BASE_URL}/api/courses/${slug}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ content: chatMessage }),
+        }
+      );
+      if (!response.ok) throw new Error("Failed to send message");
+      showToast(
+        "Message Sent",
+        "Your message has been sent to the discussion."
+      );
+      setChatMessage("");
+    } catch (err) {
+      console.error("sendChatMessage: Error", err);
+      showToast(
+        "Error",
+        err instanceof Error ? err.message : "Unable to send message.",
+        "destructive"
+      );
+    }
+  };
 
   if (isLoading) {
     return (
@@ -348,124 +376,70 @@ export default function CourseLearningScreen() {
 
   const currentLesson = course.modules[activeModule]?.lessons[activeLesson];
 
-  const renderItem = () => (
-    <View>
-      <CourseHeader course={course} />
-      <ContentTabs
-        course={course}
-        activeModule={activeModule}
-        activeLesson={activeLesson}
-        setActiveModule={setActiveModule}
-        setActiveLesson={setActiveLesson}
-        notes={notes}
-        setNotes={setNotes}
-        markLessonComplete={markLessonComplete}
-        setIsVideoLoading={setIsVideoLoading}
-      />
-    </View>
-  );
-
-  const renderMinimizedContent = () => (
-    <View style={styles.minimizedContainer}>
-      <TouchableOpacity
-        onPress={() => setIsMinimized(false)}
-        style={styles.restoreButton}
-      >
-        <ChevronUp color="#fff" size={20} />
-      </TouchableOpacity>
-      <Text style={styles.minimizedText}>My Learning</Text>
-      <Text style={styles.minimizedCourse}>{course.title}</Text>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      {!isMinimized && (
-        <ContentDisplay
+      <View style={styles.mainContent}>
+        {videoError && currentLesson?.type === "VIDEO" && (
+          <Text style={styles.errorText}>
+            Error loading video: {videoError}
+          </Text>
+        )}
+        {currentLesson?.type === "VIDEO" && (
+          <VideoPlayer
+            lesson={currentLesson}
+            normalizeYouTubeUrl={normalizeYouTubeUrl}
+            isValidYouTubeUrl={isValidYouTubeUrl}
+            handleProgress={handleProgress}
+            courseId={course.id}
+          />
+        )}
+        <LessonContent
+          course={course}
           lesson={currentLesson}
-          normalizeYouTubeUrl={normalizeYouTubeUrl}
-          isValidYouTubeUrl={isValidYouTubeUrl}
-          handleProgress={handleProgress}
-          courseId={course.id}
+          activeModule={activeModule}
+          activeLesson={activeLesson}
+          setActiveModule={setActiveModule}
+          setActiveLesson={setActiveLesson}
+          notes={notes}
+          setNotes={setNotes}
           setVideoError={setVideoError}
-          onMinimize={() => setIsMinimized(true)}
+          setIsVideoLoading={setIsVideoLoading}
+          markLessonComplete={markLessonComplete}
         />
-      )}
-      {videoError && currentLesson?.type === "VIDEO" && (
-        <Text style={styles.errorText}>Error loading video: {videoError}</Text>
-      )}
-      {isMinimized ? (
-        renderMinimizedContent()
-      ) : (
-        <FlatList
-          data={[{ key: "content" }]}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.key}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+        {showChat && (
+          <CourseDiscussion
+            slug={slug}
+            setShowChat={setShowChat}
+            chatMessage={chatMessage}
+            setChatMessage={setChatMessage}
+            sendChatMessage={sendChatMessage}
+          />
+        )}
+        {showNotes && (
+          <CourseNotes
+            course={course}
+            lessonId={currentLesson?.id || ""}
+            notes={notes}
+            setNotes={setNotes}
+            setShowNotes={setShowNotes}
+          />
+        )}
+        {showSidebar && <View style={styles.sidebar} />}
+      </View>
     </SafeAreaView>
   );
 }
 
-const { height } = Dimensions.get("window");
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 18,
-    color: "#fff",
-  },
-  errorText: {
-    color: "red",
-    textAlign: "center",
-    marginVertical: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
-    position: "absolute",
-    top: height * 0.3,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-  },
-  minimizedContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
+  container: { flex: 1, backgroundColor: "#fff" },
+  mainContent: { flex: 1, padding: 16 },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { fontSize: 18, color: "#333" },
+  errorText: { color: "red", textAlign: "center", marginBottom: 10 },
+  sidebar: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#f9f9f9",
     borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    zIndex: 30,
-  },
-  restoreButton: {
-    padding: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 15,
-  },
-  minimizedText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  minimizedCourse: {
-    fontSize: 14,
-    color: "#ccc",
   },
 });

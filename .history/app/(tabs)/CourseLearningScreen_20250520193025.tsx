@@ -1,6 +1,6 @@
-import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
-import CourseHeader from "@/components/my-learning/CourseHeader";
+import ContentDisplay from "@/components/ContentDisplay";
+import ContentTabs from "@/components/ContentTabs";
+import CourseHeader from "@/components/CourseHeader";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useNavigation, useRoute } from "@react-navigation/native";
@@ -417,8 +417,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
+    paddingTop: height * 0.3, // Space for the fixed ContentDisplay (30% height)
+    paddingBottom: 60, // Space for minimized content
   },
   loadingContainer: {
     flex: 1,

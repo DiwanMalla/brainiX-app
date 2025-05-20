@@ -1,4 +1,4 @@
-import Certificate from "./Certificate";
+import Certificate from "@/components/my-learning/Certificate";
 import CourseDiscussion from "./CourseDiscussion";
 import CourseNotes from "./CourseNotes";
 import AIGeneratedQuiz from "./AIGeneratedQuiz";

@@ -1,5 +1,5 @@
-import Certificate from "./Certificate";
-import CourseDiscussion from "./CourseDiscussion";
+import Certificate from "@/components/my-learning/Certificate";
+import CourseDiscussion from "@/components/my-learning/CourseDiscussion";
 import CourseNotes from "./CourseNotes";
 import AIGeneratedQuiz from "./AIGeneratedQuiz";
 import { Course, Lesson, Note } from "@/types/my-learning";

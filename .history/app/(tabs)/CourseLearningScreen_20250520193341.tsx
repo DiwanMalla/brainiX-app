@@ -1,5 +1,5 @@
 import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
+import ContentTabs from "@/components/my-learning/ContentTab";
 import CourseHeader from "@/components/my-learning/CourseHeader";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -382,7 +382,21 @@ export default function CourseLearningScreen() {
     <SafeAreaView style={styles.container}>
       {!isMinimized && (
         <ContentDisplay
-          lesson={currentLesson}
+          lesson={
+            currentLesson
+              ? {
+                  ...currentLesson,
+                  videoUrl:
+                    currentLesson.videoUrl === null
+                      ? undefined
+                      : currentLesson.videoUrl,
+                  content:
+                    currentLesson.content === null
+                      ? undefined
+                      : currentLesson.content,
+                }
+              : undefined
+          }
           normalizeYouTubeUrl={normalizeYouTubeUrl}
           isValidYouTubeUrl={isValidYouTubeUrl}
           handleProgress={handleProgress}
@@ -417,8 +431,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
+    paddingTop: height * 0.3, // Space for the fixed ContentDisplay (30% height)
+    paddingBottom: 60, // Space for minimized content
   },
   loadingContainer: {
     flex: 1,

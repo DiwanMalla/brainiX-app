@@ -1,5 +1,5 @@
 import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
+import ContentTabs from "@/components/my-learning/ContentTab";
 import CourseHeader from "@/components/my-learning/CourseHeader";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
@@ -7,7 +7,6 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
 import { debounce } from "lodash";
-import { ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   Dimensions,
@@ -15,7 +14,6 @@ import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
@@ -47,7 +45,6 @@ export default function CourseLearningScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const showToast = (
     title: string,
@@ -365,46 +362,26 @@ export default function CourseLearningScreen() {
     </View>
   );
 
-  const renderMinimizedContent = () => (
-    <View style={styles.minimizedContainer}>
-      <TouchableOpacity
-        onPress={() => setIsMinimized(false)}
-        style={styles.restoreButton}
-      >
-        <ChevronUp color="#fff" size={20} />
-      </TouchableOpacity>
-      <Text style={styles.minimizedText}>My Learning</Text>
-      <Text style={styles.minimizedCourse}>{course.title}</Text>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      {!isMinimized && (
-        <ContentDisplay
-          lesson={currentLesson}
-          normalizeYouTubeUrl={normalizeYouTubeUrl}
-          isValidYouTubeUrl={isValidYouTubeUrl}
-          handleProgress={handleProgress}
-          courseId={course.id}
-          setVideoError={setVideoError}
-          onMinimize={() => setIsMinimized(true)}
-        />
-      )}
+      <ContentDisplay
+        lesson={currentLesson}
+        normalizeYouTubeUrl={normalizeYouTubeUrl}
+        isValidYouTubeUrl={isValidYouTubeUrl}
+        handleProgress={handleProgress}
+        courseId={course.id}
+        setVideoError={setVideoError}
+      />
       {videoError && currentLesson?.type === "VIDEO" && (
         <Text style={styles.errorText}>Error loading video: {videoError}</Text>
       )}
-      {isMinimized ? (
-        renderMinimizedContent()
-      ) : (
-        <FlatList
-          data={[{ key: "content" }]}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.key}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <FlatList
+        data={[{ key: "content" }]}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.key}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      />
     </SafeAreaView>
   );
 }
@@ -417,8 +394,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
+    paddingTop: height * 0.3, // Space for the fixed ContentDisplay (30% height)
+    paddingBottom: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -440,32 +417,5 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-  },
-  minimizedContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    zIndex: 30,
-  },
-  restoreButton: {
-    padding: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 15,
-  },
-  minimizedText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  minimizedCourse: {
-    fontSize: 14,
-    color: "#ccc",
   },
 });

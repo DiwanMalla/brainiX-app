@@ -25,7 +25,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const videoRef = useRef<Video>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
-  const [isVideoLoading, setIsVideoLoading] = useState(true);
 
   // Debounced progress handler
   const debouncedHandleProgress = useCallback(
@@ -70,7 +69,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Retry video load
   const retryVideoLoad = () => {
     setVideoError(null);
-    setIsVideoLoading(true);
+
     if (videoRef.current) {
       videoRef.current.playFromPositionAsync(0);
     }
@@ -117,11 +116,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </View>
       ) : (
         <>
-          {isVideoLoading && (
-            <View style={styles.loadingContainer}>
-              <Text style={styles.loadingText}>Loading video...</Text>
-            </View>
-          )}
           <View style={styles.videoWrapper}>
             <Video
               ref={videoRef}
@@ -131,7 +125,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               resizeMode={ResizeMode.CONTAIN}
               onPlaybackStatusUpdate={(status) => {
                 if (status.isLoaded) {
-                  setIsVideoLoading(false);
                   if (status.didJustFinish) {
                     handleProgress({
                       playedSeconds: status.durationMillis

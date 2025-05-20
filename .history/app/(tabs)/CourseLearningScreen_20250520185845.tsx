@@ -1,18 +1,16 @@
-import ContentDisplay from "@/components/my-learning/ContentDisplay";
-import ContentTabs from "@/components/my-learning/ContentTab"; // Fixed typo
-import CourseHeader from "@/components/my-learning/CourseHeader";
+import LessonContent from "@/components/my-learning/LessonContent";
+import VideoPlayer from "@/components/my-learning/VideoPlayer";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
 import { debounce } from "lodash";
-import { ChevronUp } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
-  Dimensions,
   FlatList,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -33,6 +31,192 @@ const API_BASE_URL =
   Constants.expoConfig?.extra?.API_BASE_URL ||
   "https://braini-x-one.vercel.app";
 
+// Component 1: CourseHeader (Displays course title and instructor)
+const CourseHeader = ({ course }: { course: Course | null }) => {
+  if (!course) return null;
+  return (
+    <View style={styles.headerContainer}>
+      <Text style={styles.courseTitle}>{course.title}</Text>
+      <Text style={styles.instructorName}>
+        Instructor: {course.instructor?.name || "Unknown"}
+      </Text>
+    </View>
+  );
+};
+
+// Component 2: ContentDisplay (Renders video, quiz, flashcard, or article)
+const ContentDisplay = ({
+  lesson,
+  normalizeYouTubeUrl,
+  isValidYouTubeUrl,
+  handleProgress,
+  courseId,
+  setVideoError,
+}: {
+  lesson: Lesson | undefined;
+  normalizeYouTubeUrl: (url: string | null) => string | null;
+  isValidYouTubeUrl: (url: string | null) => boolean;
+  handleProgress: (state: { playedSeconds: number; played: number }) => void;
+  courseId: string;
+  setVideoError: (error: string | null) => void;
+}) => {
+  if (!lesson) return null;
+
+  return (
+    <View style={styles.contentDisplayContainer}>
+      {lesson.type === "VIDEO" && (
+        <VideoPlayer
+          lesson={lesson}
+          normalizeYouTubeUrl={normalizeYouTubeUrl}
+          isValidYouTubeUrl={isValidYouTubeUrl}
+          handleProgress={handleProgress}
+          courseId={courseId}
+          setVideoError={setVideoError}
+        />
+      )}
+      {lesson.type === "QUIZ" && (
+        <Text style={styles.placeholderText}>Quiz Content Placeholder</Text>
+      )}
+      {lesson.type === "FLASHCARD" && (
+        <Text style={styles.placeholderText}>
+          Flashcard Content Placeholder
+        </Text>
+      )}
+      {lesson.type === "ARTICLE" && (
+        <Text style={styles.placeholderText}>Article Content Placeholder</Text>
+      )}
+    </View>
+  );
+};
+
+// Component 3: ContentTabs (Tabs for Syllabus, AI Quiz, Notes, etc.)
+const ContentTabs = ({
+  course,
+  activeModule,
+  activeLesson,
+  setActiveModule,
+  setActiveLesson,
+  notes,
+  setNotes,
+  markLessonComplete,
+  setIsVideoLoading,
+}: {
+  course: Course | null;
+  activeModule: number;
+  activeLesson: number;
+  setActiveModule: (index: number) => void;
+  setActiveLesson: (index: number) => void;
+  notes: Note[];
+  setNotes: (notes: Note[]) => void;
+  markLessonComplete: () => void;
+  setIsVideoLoading: (loading: boolean) => void;
+}) => {
+  const [activeTab, setActiveTab] = useState<
+    "syllabus" | "aiQuiz" | "notes" | "more"
+  >("syllabus");
+
+  const renderSyllabus = () => (
+    <FlatList
+      data={course?.modules}
+      keyExtractor={(module) => module.id}
+      renderItem={({ item: module, index: moduleIndex }) => (
+        <View style={styles.moduleContainer}>
+          <Text style={styles.moduleTitle}>{module.title}</Text>
+          {module.lessons.map((lesson, lessonIndex) => (
+            <View key={lesson.id} style={styles.lessonContainer}>
+              <TouchableOpacity
+                onPress={() => {
+                  setActiveModule(moduleIndex);
+                  setActiveLesson(lessonIndex);
+                  setIsVideoLoading(lesson.type === "VIDEO");
+                }}
+                style={[
+                  styles.lessonItem,
+                  activeModule === moduleIndex && activeLesson === lessonIndex
+                    ? styles.activeLesson
+                    : null,
+                ]}
+              >
+                <Text style={styles.lessonTitle}>{lesson.title}</Text>
+                <Text style={styles.lessonStatus}>
+                  {lesson.progress[0]?.completed
+                    ? "Completed"
+                    : "Not Completed"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={markLessonComplete}
+                style={styles.markCompleteButton}
+                disabled={lesson.progress[0]?.completed}
+              >
+                <Text style={styles.markCompleteText}>
+                  {lesson.progress[0]?.completed
+                    ? "Completed"
+                    : "Mark as Complete"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+      style={styles.syllabusList}
+    />
+  );
+
+  return (
+    <View style={styles.tabsContainer}>
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "syllabus" && styles.activeTab]}
+          onPress={() => setActiveTab("syllabus")}
+        >
+          <Text style={styles.tabText}>Syllabus</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "aiQuiz" && styles.activeTab]}
+          onPress={() => setActiveTab("aiQuiz")}
+        >
+          <Text style={styles.tabText}>AI Quiz</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "notes" && styles.activeTab]}
+          onPress={() => setActiveTab("notes")}
+        >
+          <Text style={styles.tabText}>Notes</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "more" && styles.activeTab]}
+          onPress={() => setActiveTab("more")}
+        >
+          <Text style={styles.tabText}>More</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={styles.tabContent}>
+        {activeTab === "syllabus" && renderSyllabus()}
+        {activeTab === "aiQuiz" && (
+          <Text style={styles.placeholderText}>AI Quiz Placeholder</Text>
+        )}
+        {activeTab === "notes" && (
+          <LessonContent
+            course={course}
+            lesson={course?.modules[activeModule]?.lessons[activeLesson]}
+            activeModule={activeModule}
+            activeLesson={activeLesson}
+            setActiveModule={setActiveModule}
+            setActiveLesson={setActiveLesson}
+            notes={notes}
+            setNotes={setNotes}
+            markLessonComplete={markLessonComplete}
+          />
+        )}
+        {activeTab === "more" && (
+          <Text style={styles.placeholderText}>More Content Placeholder</Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
 export default function CourseLearningScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
@@ -47,7 +231,6 @@ export default function CourseLearningScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
 
   const showToast = (
     title: string,
@@ -348,124 +531,115 @@ export default function CourseLearningScreen() {
 
   const currentLesson = course.modules[activeModule]?.lessons[activeLesson];
 
-  const renderItem = () => (
-    <View>
-      <CourseHeader course={course} />
-      <ContentTabs
-        course={course}
-        activeModule={activeModule}
-        activeLesson={activeLesson}
-        setActiveModule={setActiveModule}
-        setActiveLesson={setActiveLesson}
-        notes={notes}
-        setNotes={setNotes}
-        markLessonComplete={markLessonComplete}
-        setIsVideoLoading={setIsVideoLoading}
-      />
-    </View>
-  );
-
-  const renderMinimizedContent = () => (
-    <View style={styles.minimizedContainer}>
-      <TouchableOpacity
-        onPress={() => setIsMinimized(false)}
-        style={styles.restoreButton}
-      >
-        <ChevronUp color="#fff" size={20} />
-      </TouchableOpacity>
-      <Text style={styles.minimizedText}>My Learning</Text>
-      <Text style={styles.minimizedCourse}>{course.title}</Text>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
-      {!isMinimized && (
-        <ContentDisplay
-          lesson={currentLesson}
-          normalizeYouTubeUrl={normalizeYouTubeUrl}
-          isValidYouTubeUrl={isValidYouTubeUrl}
-          handleProgress={handleProgress}
-          courseId={course.id}
-          setVideoError={setVideoError}
-          onMinimize={() => setIsMinimized(true)}
-        />
-      )}
-      {videoError && currentLesson?.type === "VIDEO" && (
-        <Text style={styles.errorText}>Error loading video: {videoError}</Text>
-      )}
-      {isMinimized ? (
-        renderMinimizedContent()
-      ) : (
-        <FlatList
-          data={[{ key: "content" }]}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.key}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <ScrollView
+        style={styles.scrollView}
+        stickyHeaderIndices={[1]}
+        showsVerticalScrollIndicator={false}
+      >
+        <CourseHeader course={course} />
+        <View style={styles.stickyContainer}>
+          <ContentDisplay
+            lesson={currentLesson}
+            normalizeYouTubeUrl={normalizeYouTubeUrl}
+            isValidYouTubeUrl={isValidYouTubeUrl}
+            handleProgress={handleProgress}
+            courseId={course.id}
+            setVideoError={setVideoError}
+          />
+          {videoError && currentLesson?.type === "VIDEO" && (
+            <Text style={styles.errorText}>
+              Error loading video: {videoError}
+            </Text>
+          )}
+          <ContentTabs
+            course={course}
+            activeModule={activeModule}
+            activeLesson={activeLesson}
+            setActiveModule={setActiveModule}
+            setActiveLesson={setActiveLesson}
+            notes={notes}
+            setNotes={setNotes}
+            markLessonComplete={markLessonComplete}
+            setIsVideoLoading={setIsVideoLoading}
+          />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const { height } = Dimensions.get("window");
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: "#fff" },
+  scrollView: { flex: 1 },
+  stickyContainer: { backgroundColor: "#fff" },
+  headerContainer: {
+    padding: 16,
+    backgroundColor: "#f5f5f5",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+  },
+  courseTitle: { fontSize: 24, fontWeight: "bold", color: "#333" },
+  instructorName: { fontSize: 16, color: "#666", marginTop: 4 },
+  contentDisplayContainer: {
+    height: 200, // Adjust based on video player or content height
     backgroundColor: "#000",
-  },
-  contentContainer: {
-    paddingTop: height * 0.3,
-    paddingBottom: 60,
-  },
-  loadingContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingText: {
-    fontSize: 18,
-    color: "#fff",
-  },
-  errorText: {
-    color: "red",
-    textAlign: "center",
-    marginVertical: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
-    position: "absolute",
-    top: height * 0.3,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-  },
-  minimizedContainer: {
-    position: "absolute",
-    bottom: 10,
-    left: 10,
-    right: 10,
-    backgroundColor: "#1c1c1e",
-    padding: 10,
-    borderRadius: 8,
+  tabsContainer: { flex: 1, marginTop: 8 },
+  tabBar: {
     flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ddd",
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+  },
+  tab: {
+    flex: 1,
     alignItems: "center",
-    gap: 10,
-    zIndex: 30,
+    paddingVertical: 12,
   },
-  restoreButton: {
-    padding: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 15,
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#007AFF",
   },
-  minimizedText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
+  tabText: { fontSize: 16, color: "#333" },
+  tabContent: { padding: 16, minHeight: 300 },
+  moduleContainer: { marginBottom: 16 },
+  moduleTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
   },
-  minimizedCourse: {
-    fontSize: 14,
-    color: "#ccc",
+  lessonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
+  lessonItem: {
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+  },
+  activeLesson: { backgroundColor: "#e6f0ff" },
+  lessonTitle: { fontSize: 16, color: "#333" },
+  lessonStatus: { fontSize: 14, color: "#666", marginTop: 4 },
+  markCompleteButton: {
+    marginLeft: 8,
+    padding: 8,
+    backgroundColor: "#007AFF",
+    borderRadius: 8,
+    opacity: 0.9,
+  },
+  markCompleteText: { color: "#fff", fontSize: 14 },
+  syllabusList: { flexGrow: 0 },
+  placeholderText: { fontSize: 16, color: "#666", textAlign: "center" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  loadingText: { fontSize: 18, color: "#333" },
+  errorText: { color: "red", textAlign: "center", marginVertical: 10 },
 });
