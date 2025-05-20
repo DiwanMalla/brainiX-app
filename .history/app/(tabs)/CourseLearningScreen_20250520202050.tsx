@@ -286,7 +286,7 @@ export default function CourseLearningScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 50,
+    marginTop: 20,
     flex: 1,
     backgroundColor: "#000",
   },
