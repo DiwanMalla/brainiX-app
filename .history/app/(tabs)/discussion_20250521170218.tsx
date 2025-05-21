@@ -73,7 +73,7 @@ export default function DiscussionScreen() {
 
       // Clear the input field on success
       setChatMessage("");
-      setSend(!send);
+
       // Show success toast
       Toast.show({
         type: "success",
@@ -94,7 +94,6 @@ export default function DiscussionScreen() {
   return (
     <CourseDiscussion
       slug={slug}
-      send={send}
       setShowChat={setShowChat}
       chatMessage={chatMessage}
       setChatMessage={setChatMessage}

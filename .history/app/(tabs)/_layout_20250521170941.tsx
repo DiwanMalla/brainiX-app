@@ -89,11 +89,6 @@ export default function TabLayout() {
         name="resources"
         options={{ href: null, headerShown: false }}
       />
-      <Tabs.Screen
-        name="discussion"
-        options={{ href: null, headerShown: false }}
-      />
-      <Tabs.Screen name="share" options={{ href: null, headerShown: false }} />
     </Tabs>
   );
 }

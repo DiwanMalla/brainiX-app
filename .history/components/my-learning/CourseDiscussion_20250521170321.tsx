@@ -1,6 +1,5 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import Pusher from "pusher-js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -63,6 +62,9 @@ export default function CourseDiscussion({
   const scrollViewRef = useRef<ScrollView>(null);
   const fetchIdRef = useRef(0); // Track fetch calls
 
+  console.log("CourseDiscussion: Mounted", { slug });
+  console.log("CourseDiscussion: Props", { slug, chatMessage, showChat: true });
+
   useEffect(() => {
     return () => {
       console.log("CourseDiscussion: Unmounted", { slug });
@@ -76,27 +78,28 @@ export default function CourseDiscussion({
     async function fetchMessages() {
       if (!slug || !isMounted) {
         setError("Course information is unavailable.");
-
+        console.log("fetchMessages: No slug or unmounted");
         return;
       }
       setLoading(true);
       setError(null);
       try {
         const token = await getToken();
-
+        console.log("fetchMessages: Token", token ? "Present" : "Missing");
+        console.log("fetchMessages: activeIntake", activeIntake);
         const response = await fetch(
           `${BASE_URL}/api/courses/${slug}/messages?intake=${activeIntake}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
+        console.log("fetchMessages: Response status", response.status);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to fetch messages");
         }
         const data = await response.json();
-
+        console.log("fetchMessages: API response", data);
         if (!Array.isArray(data)) {
           throw new Error("Invalid API response: Expected an array");
         }
@@ -116,6 +119,7 @@ export default function CourseDiscussion({
             isInstructor: msg.sender.role === "INSTRUCTOR",
           }));
           setMessages(newMessages);
+          console.log("fetchMessages: Updated messages", newMessages.length);
         } else {
           console.log("fetchMessages: Ignored outdated fetch", {
             fetchId,
@@ -247,7 +251,7 @@ export default function CourseDiscussion({
       >
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => router.push("/(tabs)/CourseLearningScreen")}
+          onPress={() => setShowChat(false)}
           accessibilityLabel="Close discussion"
         >
           <MaterialCommunityIcons

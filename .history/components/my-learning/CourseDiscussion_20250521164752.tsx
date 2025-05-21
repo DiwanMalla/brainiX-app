@@ -1,6 +1,5 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import Pusher from "pusher-js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -17,7 +16,6 @@ import Toast from "react-native-toast-message";
 
 interface CourseDiscussionProps {
   slug: string;
-  send: boolean;
   setShowChat: (value: boolean) => void;
   chatMessage: string;
   setChatMessage: (value: string) => void;
@@ -46,9 +44,7 @@ const BASE_URL = "https://braini-x-one.vercel.app";
 
 export default function CourseDiscussion({
   slug,
-  send,
   setShowChat,
-
   chatMessage,
   setChatMessage,
   sendChatMessage,
@@ -61,69 +57,60 @@ export default function CourseDiscussion({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
-  const fetchIdRef = useRef(0); // Track fetch calls
 
-  useEffect(() => {
-    return () => {
-      console.log("CourseDiscussion: Unmounted", { slug });
-    };
-  }, [slug]);
+  console.log("CourseDiscussion: Props", { slug, chatMessage, showChat: true });
 
   useEffect(() => {
     let isMounted = true;
-    const fetchId = ++fetchIdRef.current;
 
     async function fetchMessages() {
       if (!slug || !isMounted) {
         setError("Course information is unavailable.");
-
+        console.log("fetchMessages: No slug or unmounted");
         return;
       }
       setLoading(true);
       setError(null);
       try {
         const token = await getToken();
-
+        console.log("fetchMessages: Token", token ? "Present" : "Missing");
+        console.log("fetchMessages: activeIntake", activeIntake);
         const response = await fetch(
           `${BASE_URL}/api/courses/${slug}/messages?intake=${activeIntake}`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
+        console.log("fetchMessages: Response status", response.status);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to fetch messages");
         }
         const data = await response.json();
-
+        console.log("fetchMessages: API response", data);
         if (!Array.isArray(data)) {
           throw new Error("Invalid API response: Expected an array");
         }
-        if (isMounted && fetchId === fetchIdRef.current) {
-          const newMessages = data.map((msg: ApiMessage) => ({
-            id: msg.id,
-            user: msg.sender.name,
-            avatar:
-              msg.sender.image || msg.sender.name.slice(0, 2).toUpperCase(),
-            message: msg.content,
-            time: new Intl.DateTimeFormat("en-US", {
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true,
-            }).format(new Date(msg.createdAt)),
-            likes: msg.likes,
-            isInstructor: msg.sender.role === "INSTRUCTOR",
-          }));
-          setMessages(newMessages);
-        } else {
-          console.log("fetchMessages: Ignored outdated fetch", {
-            fetchId,
-            current: fetchIdRef.current,
-          });
+        if (isMounted) {
+          setMessages(
+            data.map((msg) => ({
+              id: msg.id,
+              user: msg.sender.name,
+              avatar:
+                msg.sender.image || msg.sender.name.slice(0, 2).toUpperCase(),
+              message: msg.content,
+              time: new Intl.DateTimeFormat("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              }).format(new Date(msg.createdAt)),
+              likes: msg.likes,
+              isInstructor: msg.sender.role === "INSTRUCTOR",
+            }))
+          );
         }
       } catch (err) {
-        if (isMounted && fetchId === fetchIdRef.current) {
+        if (isMounted) {
           const errorMessage =
             err instanceof Error ? err.message : "Error loading messages";
           setError(errorMessage);
@@ -131,7 +118,7 @@ export default function CourseDiscussion({
           Toast.show({ type: "error", text1: "Error", text2: errorMessage });
         }
       } finally {
-        if (isMounted && fetchId === fetchIdRef.current) {
+        if (isMounted) {
           setLoading(false);
           console.log("fetchMessages: State", {
             loading: false,
@@ -146,8 +133,7 @@ export default function CourseDiscussion({
     return () => {
       isMounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIntake, send]);
+  }, [slug, activeIntake]);
 
   useEffect(() => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -247,7 +233,7 @@ export default function CourseDiscussion({
       >
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => router.push("/(tabs)/CourseLearningScreen")}
+          onPress={() => setShowChat(false)}
           accessibilityLabel="Close discussion"
         >
           <MaterialCommunityIcons
@@ -329,173 +315,151 @@ export default function CourseDiscussion({
             </Text>
           </TouchableOpacity>
         </View>
-        <Text style={{ color: isDark ? "#fff" : "#333", padding: 8 }}>
-          Messages in state: {messages.length}
-        </Text>
-        {/* ScrollView section */}
         <ScrollView
           ref={scrollViewRef}
-          style={[
-            styles.messagesContainer,
-            { backgroundColor: isDark ? "#333" : "#eee" },
-          ]}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
+          style={styles.messagesContainer}
+          contentContainerStyle={{ paddingBottom: 16 }}
         >
           {loading ? (
             <Text
-              style={{ ...styles.loadingText, color: isDark ? "#ccc" : "#666" }}
+              style={[styles.loadingText, { color: isDark ? "#ccc" : "#666" }]}
             >
               Loading messages...
             </Text>
           ) : error ? (
             <Text
-              style={{
-                ...styles.errorText,
-                color: isDark ? "#ff4444" : "#ff0000",
-              }}
+              style={[
+                styles.errorText,
+                { color: isDark ? "#ff4444" : "#ff0000" },
+              ]}
             >
               {error}
             </Text>
           ) : messages.length === 0 ? (
             <Text
-              style={{
-                ...styles.noMessagesText,
-                color: isDark ? "#ccc" : "#666",
-              }}
+              style={[
+                styles.noMessagesText,
+                { color: isDark ? "#ccc" : "#666" },
+              ]}
             >
               No messages yet. Start the discussion!
             </Text>
           ) : (
-            <View
-              style={[
-                styles.messages,
-                { backgroundColor: isDark ? "#444" : "#ddd" },
-              ]}
-            >
+            <View style={styles.messages}>
               {activeIntake === "current" ? (
-                messages.map((msg) => (
-                  <View
-                    key={msg.id}
-                    style={[
-                      styles.message,
-                      { backgroundColor: isDark ? "#555" : "#ccc" },
-                    ]}
-                  >
-                    {msg.avatar && msg.avatar.startsWith("http") ? (
-                      <Image
-                        source={{ uri: msg.avatar }}
-                        style={[
-                          styles.avatar,
-                          msg.isInstructor && styles.instructorAvatar,
-                        ]}
-                        onError={(e) =>
-                          console.log(
-                            "Image load error",
-                            msg.id,
-                            e.nativeEvent.error
-                          )
-                        }
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.avatar,
-                          msg.isInstructor && styles.instructorAvatar,
-                          { backgroundColor: isDark ? "#666" : "#bbb" },
-                        ]}
-                      >
-                        <Text
-                          style={{
-                            ...styles.avatarText,
-                            color: isDark ? "#fff" : "#333",
-                          }}
+                messages.map((msg) => {
+                  console.log("Rendering message", msg.id, msg.message);
+                  return (
+                    <View key={msg.id} style={styles.message}>
+                      {msg.avatar && msg.avatar.startsWith("http") ? (
+                        <Image
+                          source={{ uri: msg.avatar }}
+                          style={[
+                            styles.avatar,
+                            msg.isInstructor && styles.instructorAvatar,
+                          ]}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.avatar,
+                            msg.isInstructor && styles.instructorAvatar,
+                            { backgroundColor: isDark ? "#444" : "#ccc" },
+                          ]}
                         >
-                          {msg.avatar || "??"}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.messageContent}>
-                      <View style={styles.messageHeader}>
-                        <Text
-                          style={{
-                            ...styles.messageUser,
-                            color: isDark ? "#fff" : "#333",
-                          }}
-                        >
-                          {msg.user}
-                        </Text>
-                        {msg.isInstructor && (
-                          <View
+                          <Text
                             style={[
-                              styles.instructorBadge,
-                              { borderColor: isDark ? "#a500ff" : "#7b00cc" },
+                              styles.avatarText,
+                              { color: isDark ? "#fff" : "#333" },
                             ]}
                           >
-                            <Text
-                              style={{
-                                ...styles.badgeText,
-                                color: isDark ? "#a500ff" : "#7b00cc",
-                              }}
+                            {msg.avatar || "??"}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.messageContent}>
+                        <View style={styles.messageHeader}>
+                          <Text
+                            style={[
+                              styles.messageUser,
+                              { color: isDark ? "#fff" : "#333" },
+                            ]}
+                          >
+                            {msg.user}
+                          </Text>
+                          {msg.isInstructor && (
+                            <View
+                              style={[
+                                styles.instructorBadge,
+                                { borderColor: isDark ? "#a500ff" : "#7b00cc" },
+                              ]}
                             >
-                              Instructor
-                            </Text>
-                          </View>
-                        )}
+                              <Text
+                                style={[
+                                  styles.badgeText,
+                                  { color: isDark ? "#a500ff" : "#7b00cc" },
+                                ]}
+                              >
+                                Instructor
+                              </Text>
+                            </View>
+                          )}
+                          <Text
+                            style={[
+                              styles.messageTime,
+                              { color: isDark ? "#ccc" : "#666" },
+                            ]}
+                          >
+                            {msg.time}
+                          </Text>
+                        </View>
                         <Text
-                          style={{
-                            ...styles.messageTime,
-                            color: isDark ? "#ccc" : "#666",
-                          }}
+                          style={[
+                            styles.messageText,
+                            { color: isDark ? "#fff" : "#333" },
+                          ]}
                         >
-                          {msg.time}
+                          {msg.message}
                         </Text>
-                      </View>
-                      <Text
-                        style={{
-                          ...styles.messageText,
-                          color: isDark ? "#fff" : "#333",
-                        }}
-                      >
-                        {msg.message}
-                      </Text>
-                      <View style={styles.messageActions}>
-                        <TouchableOpacity
-                          onPress={() => likeMessage(msg.id)}
-                          style={styles.actionButton}
-                          accessibilityLabel={`Like message by ${msg.user}`}
-                        >
-                          <MaterialCommunityIcons
-                            name="thumb-up-outline"
-                            size={14}
-                            color={isDark ? "#ccc" : "#666"}
-                          />
-                          <Text
-                            style={{
-                              ...styles.actionText,
-                              color: isDark ? "#ccc" : "#666",
-                            }}
+                        <View style={styles.messageActions}>
+                          <TouchableOpacity
+                            onPress={() => likeMessage(msg.id)}
+                            style={styles.actionButton}
+                            accessibilityLabel={`Like message by ${msg.user}`}
                           >
-                            {msg.likes}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          disabled
-                          accessibilityLabel="Reply disabled"
-                        >
-                          <Text
-                            style={{
-                              ...styles.actionText,
-                              color: isDark ? "#ccc" : "#666",
-                            }}
+                            <MaterialCommunityIcons
+                              name="thumb-up-outline"
+                              size={14}
+                              color={isDark ? "#ccc" : "#666"}
+                            />
+                            <Text
+                              style={[
+                                styles.actionText,
+                                { color: isDark ? "#ccc" : "#666" },
+                              ]}
+                            >
+                              {msg.likes}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            disabled
+                            accessibilityLabel="Reply disabled"
                           >
-                            Reply
-                          </Text>
-                        </TouchableOpacity>
+                            <Text
+                              style={[
+                                styles.actionText,
+                                { color: isDark ? "#ccc" : "#666" },
+                              ]}
+                            >
+                              Reply
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
-                  </View>
-                ))
+                  );
+                })
               ) : (
                 <>
                   <View
@@ -505,10 +469,10 @@ export default function CourseDiscussion({
                     ]}
                   >
                     <Text
-                      style={{
-                        ...styles.archiveText,
-                        color: isDark ? "#ccc" : "#666",
-                      }}
+                      style={[
+                        styles.archiveText,
+                        { color: isDark ? "#ccc" : "#666" },
+                      ]}
                     >
                       This is an archive of discussions from the previous course
                       intake. You can read these messages but cannot reply to
@@ -516,13 +480,7 @@ export default function CourseDiscussion({
                     </Text>
                   </View>
                   {messages.map((msg) => (
-                    <View
-                      key={msg.id}
-                      style={[
-                        styles.message,
-                        { backgroundColor: isDark ? "#555" : "#ccc" },
-                      ]}
-                    >
+                    <View key={msg.id} style={styles.message}>
                       {msg.avatar && msg.avatar.startsWith("http") ? (
                         <Image
                           source={{ uri: msg.avatar }}
@@ -530,27 +488,20 @@ export default function CourseDiscussion({
                             styles.avatar,
                             msg.isInstructor && styles.instructorAvatar,
                           ]}
-                          onError={(e) =>
-                            console.log(
-                              "Image load error",
-                              msg.id,
-                              e.nativeEvent.error
-                            )
-                          }
                         />
                       ) : (
                         <View
                           style={[
                             styles.avatar,
                             msg.isInstructor && styles.instructorAvatar,
-                            { backgroundColor: isDark ? "#666" : "#bbb" },
+                            { backgroundColor: isDark ? "#444" : "#ccc" },
                           ]}
                         >
                           <Text
-                            style={{
-                              ...styles.avatarText,
-                              color: isDark ? "#fff" : "#333",
-                            }}
+                            style={[
+                              styles.avatarText,
+                              { color: isDark ? "#fff" : "#333" },
+                            ]}
                           >
                             {msg.avatar || "??"}
                           </Text>
@@ -559,10 +510,10 @@ export default function CourseDiscussion({
                       <View style={styles.messageContent}>
                         <View style={styles.messageHeader}>
                           <Text
-                            style={{
-                              ...styles.messageUser,
-                              color: isDark ? "#fff" : "#333",
-                            }}
+                            style={[
+                              styles.messageUser,
+                              { color: isDark ? "#fff" : "#333" },
+                            ]}
                           >
                             {msg.user}
                           </Text>
@@ -631,12 +582,14 @@ export default function CourseDiscussion({
             ]}
           >
             <TextInput
-              style={{
-                ...styles.input,
-                backgroundColor: isDark ? "#2c2c2e" : "#f9f9f9",
-                borderColor: isDark ? "#444" : "#e0e0e0",
-                color: isDark ? "#fff" : "#333",
-              }}
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? "#2c2c2e" : "#f9f9f9",
+                  borderColor: isDark ? "#444" : "#e0e0e0",
+                  color: isDark ? "#fff" : "#333",
+                },
+              ]}
               placeholder="Type your message..."
               placeholderTextColor={isDark ? "#666" : "#999"}
               value={chatMessage}
@@ -676,9 +629,8 @@ export default function CourseDiscussion({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-
-    marginTop: 30,
+    margin: 16,
+    marginTop: 80,
     borderRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -686,11 +638,11 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   card: {
-    flex: 1,
     padding: 20,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: "#a500ff",
+    position: "relative",
   },
   closeButton: {
     position: "absolute",
@@ -757,21 +709,17 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     textAlign: "center",
-    padding: 16,
   },
   errorText: {
     fontSize: 14,
     textAlign: "center",
-    padding: 16,
   },
   noMessagesText: {
     fontSize: 14,
     textAlign: "center",
-    padding: 16,
   },
   messages: {
     flexGrow: 1,
-    padding: 8,
   },
   archiveNotice: {
     padding: 12,
@@ -784,8 +732,7 @@ const styles = StyleSheet.create({
   message: {
     flexDirection: "row",
     marginBottom: 16,
-    padding: 8,
-    borderRadius: 8,
+    paddingHorizontal: 8,
   },
   avatar: {
     width: 40,

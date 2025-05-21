@@ -1,6 +1,5 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import Pusher from "pusher-js";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -247,7 +246,7 @@ export default function CourseDiscussion({
       >
         <TouchableOpacity
           style={styles.closeButton}
-          onPress={() => router.push("/(tabs)/CourseLearningScreen")}
+          onPress={() => setShowChat(false)}
           accessibilityLabel="Close discussion"
         >
           <MaterialCommunityIcons

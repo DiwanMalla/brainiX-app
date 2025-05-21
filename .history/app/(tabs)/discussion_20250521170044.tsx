@@ -8,7 +8,6 @@ import CourseDiscussion from "../../components/my-learning/CourseDiscussion";
 export default function DiscussionScreen() {
   const { course } = useLocalSearchParams();
   const { getToken } = useAuth();
-  const [send, setSend] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [showChat, setShowChat] = useState(true); // Always true for standalone screen
   let parsedCourse: Course | undefined;
@@ -73,7 +72,7 @@ export default function DiscussionScreen() {
 
       // Clear the input field on success
       setChatMessage("");
-      setSend(!send);
+
       // Show success toast
       Toast.show({
         type: "success",
@@ -94,7 +93,6 @@ export default function DiscussionScreen() {
   return (
     <CourseDiscussion
       slug={slug}
-      send={send}
       setShowChat={setShowChat}
       chatMessage={chatMessage}
       setChatMessage={setChatMessage}
