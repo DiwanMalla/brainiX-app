@@ -81,10 +81,6 @@ export default function TabLayout() {
         name="AboutCourseScreen"
         options={{ href: null, headerShown: false }}
       />
-      <Tabs.Screen
-        name="certification"
-        options={{ href: null, headerShown: false }}
-      />
     </Tabs>
   );
 }

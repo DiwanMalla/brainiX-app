@@ -1,5 +1,5 @@
 import { Feather, MaterialIcons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -10,31 +10,29 @@ import {
 import { RadioButton } from "react-native-paper";
 import Toast from "react-native-toast-message";
 
-interface Question {
+type Question = {
   id: string;
   text: string;
   options: string[];
   correctAnswer: string;
   explanation: string;
-}
+};
 
-interface QuizResult {
+type QuizResult = {
   questionId: string;
   isCorrect: boolean;
   selectedAnswer: string;
   correctAnswer: string;
   explanation: string;
-}
+};
 
-interface AIGeneratedQuizProps {
+type QuizProps = {
+  generateQuiz: () => Promise<any>;
+  submitQuiz: (quizId: string, answers: any) => Promise<any>;
   courseId: string;
-  lessonId: string;
-}
+};
 
-export default function AIGeneratedQuiz({
-  courseId,
-  lessonId,
-}: AIGeneratedQuizProps) {
+const Quiz = ({ generateQuiz, submitQuiz, courseId }: QuizProps) => {
   const [quizId, setQuizId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,21 +40,27 @@ export default function AIGeneratedQuiz({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
 
-  const generateQuiz = async () => {
+  useEffect(() => {
+    if (courseId) {
+      handleGenerateQuiz();
+    } else {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Missing course information",
+      });
+    }
+  }, [generateQuiz, courseId]);
+
+  const handleGenerateQuiz = async () => {
     setIsLoading(true);
     setIsSubmitted(false);
     setResults([]);
     try {
-      const res = await fetch(
-        "https://braini-x-one.vercel.app/api/quiz/generate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lessonId }),
-        }
-      );
-      if (!res.ok) throw new Error("Failed to generate quiz");
-      const data = await res.json();
+      const data = await generateQuiz();
+      if (!data || !data.quizId || !data.questions) {
+        throw new Error("Invalid quiz data format");
+      }
       setQuizId(data.quizId);
       setQuestions(data.questions);
       setAnswers({});
@@ -65,30 +69,31 @@ export default function AIGeneratedQuiz({
         text1: "Quiz Generated",
         text2: "Your AI-generated quiz is ready!",
       });
-    } catch (error) {
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: `Failed to generate quiz: ${error}`,
+        text2: `Failed to generate quiz: ${error.message}`,
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const onSubmit = async () => {
-    if (!quizId) return;
+  const handleSubmit = async () => {
+    if (!quizId) {
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "No quiz available to submit",
+      });
+      return;
+    }
     try {
-      const res = await fetch(
-        "https://braini-x-one.vercel.app/api/quiz/submit",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ quizId, answers, courseId }),
-        }
-      );
-      if (!res.ok) throw new Error("Failed to submit quiz");
-      const result = await res.json();
+      const result = await submitQuiz(quizId, answers);
+      if (!result || !result.results) {
+        throw new Error("Invalid quiz submission response");
+      }
       setResults(result.results);
       setIsSubmitted(true);
       Toast.show({
@@ -98,21 +103,22 @@ export default function AIGeneratedQuiz({
           result.passed ? " (Passed)" : ""
         }`,
       });
-    } catch (error) {
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Error",
-        text2: `Failed to submit quiz: ${error}`,
+        text2: `Failed to submit quiz: ${error.message}`,
       });
     }
   };
 
-  const resetQuiz = () => {
+  const handleResetQuiz = () => {
     setQuizId(null);
     setQuestions([]);
     setResults([]);
     setIsSubmitted(false);
     setAnswers({});
+    handleGenerateQuiz();
   };
 
   return (
@@ -120,8 +126,8 @@ export default function AIGeneratedQuiz({
       <View style={styles.header}>
         <Text style={styles.headerText}>AI-Generated Quiz</Text>
         <TouchableOpacity
-          onPress={generateQuiz}
-          disabled={isLoading}
+          onPress={handleGenerateQuiz}
+          disabled={isLoading || !courseId}
           style={styles.generateButton}
         >
           <Feather
@@ -143,10 +149,12 @@ export default function AIGeneratedQuiz({
           style={styles.icon}
         />
         <Text style={styles.infoText}>
-          This quiz is generated by AI based on the content of this lesson.
+          This quiz is generated by AI based on the content of this course.
         </Text>
       </View>
-      {questions.length > 0 ? (
+      {isLoading ? (
+        <Text style={styles.noQuizText}>Loading quiz...</Text>
+      ) : questions.length > 0 ? (
         <ScrollView>
           {questions.map((question, index) => {
             const result = results.find((r) => r.questionId === question.id);
@@ -205,8 +213,16 @@ export default function AIGeneratedQuiz({
             );
           })}
           <TouchableOpacity
-            onPress={isSubmitted ? resetQuiz : onSubmit}
-            style={styles.submitButton}
+            onPress={isSubmitted ? handleResetQuiz : handleSubmit}
+            style={[
+              styles.submitButton,
+              !isSubmitted && Object.keys(answers).length !== questions.length
+                ? styles.submitButtonDisabled
+                : null,
+            ]}
+            disabled={
+              !isSubmitted && Object.keys(answers).length !== questions.length
+            }
           >
             <Text style={styles.buttonText}>
               {isSubmitted ? "Try Another Quiz" : "Submit Answers"}
@@ -220,17 +236,25 @@ export default function AIGeneratedQuiz({
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
+  container: {
+    flex: 1,
+    padding: 16,
+    backgroundColor: "#f5f5f5",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
   },
-  headerText: { fontSize: 18, fontWeight: "600", color: "#333" },
+  headerText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
   generateButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -238,8 +262,14 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 4,
   },
-  buttonText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-  icon: { marginRight: 4 },
+  buttonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  icon: {
+    marginRight: 4,
+  },
   infoContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -248,7 +278,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
   },
-  infoText: { fontSize: 14, color: "#333" },
+  infoText: {
+    fontSize: 14,
+    color: "#333",
+  },
   questionContainer: {
     backgroundColor: "#fff",
     padding: 16,
@@ -263,7 +296,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-  questionText: { fontSize: 16, fontWeight: "500", color: "#333" },
+  questionText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+  },
   optionContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -271,18 +308,34 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 4,
   },
-  optionDefault: { backgroundColor: "#fff" },
-  optionCorrect: { backgroundColor: "#e6ffed" },
-  optionIncorrect: { backgroundColor: "#ffe6e6" },
-  optionText: { fontSize: 14, color: "#333" },
+  optionDefault: {
+    backgroundColor: "#fff",
+  },
+  optionCorrect: {
+    backgroundColor: "#e6ffed",
+  },
+  optionIncorrect: {
+    backgroundColor: "#ffe6e6",
+  },
+  optionText: {
+    fontSize: 14,
+    color: "#333",
+  },
   explanationContainer: {
     backgroundColor: "#f0f0f0",
     padding: 12,
     borderRadius: 8,
     marginTop: 8,
   },
-  explanationTitle: { fontSize: 14, fontWeight: "600", color: "#333" },
-  explanationText: { fontSize: 14, color: "#666" },
+  explanationTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+  },
+  explanationText: {
+    fontSize: 14,
+    color: "#666",
+  },
   submitButton: {
     backgroundColor: "#007bff",
     padding: 12,
@@ -290,5 +343,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 16,
   },
-  noQuizText: { fontSize: 14, color: "#666", textAlign: "center" },
+  submitButtonDisabled: {
+    backgroundColor: "#cccccc",
+    opacity: 0.6,
+  },
+  noQuizText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
 });
+
+export default Quiz;

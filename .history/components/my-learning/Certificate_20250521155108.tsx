@@ -16,27 +16,16 @@ import * as Progress from "react-native-progress";
 interface CertificateProps {
   course?: Course;
   progress: number;
-  source?: string;
 }
 
-export default function Certificate({
-  course,
-  progress,
-  source,
-}: CertificateProps) {
+export default function Certificate({ course, progress }: CertificateProps) {
   const { user } = useUser();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const colorScheme = useColorScheme();
   const totalLessons = course?.totalLessons || 80;
   const completedLessons = Math.floor((progress / 100) * totalLessons);
   const [fadeAnim] = useState(new Animated.Value(0)); // Animation for lock overlay
-  const handleBackPress = () => {
-    if (source === "certification") {
-      router.replace("/certification");
-    } else {
-      router.replace("/CourseLearningScreen");
-    }
-  };
+
   useEffect(() => {
     setIsUnlocked(completedLessons >= 30);
     Animated.timing(fadeAnim, {
@@ -90,7 +79,7 @@ export default function Certificate({
         {/* Back Icon */}
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => handleBackPress()}
+          onPress={() => router.back()}
           accessibilityLabel="Go back"
         >
           <MaterialCommunityIcons

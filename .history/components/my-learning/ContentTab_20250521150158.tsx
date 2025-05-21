@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
 import {
   Award,
   BookOpen,
@@ -8,13 +8,13 @@ import {
 } from "lucide-react-native";
 import { useState } from "react";
 import {
-  FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from "react-native";
+import AboutCourse from "./AboutCourse";
 import Lecture from "./Lecture";
 import Note from "./Note";
 import Quiz from "./Quiz";
@@ -37,7 +37,6 @@ type Module = {
 type Course = {
   id: string;
   title: string;
-  slug?: string;
   instructor?: { name?: string };
   modules: Module[];
   description?: string;
@@ -77,31 +76,8 @@ const ContentTabs = ({
   setIsVideoLoading,
 }: ContentTabsProps) => {
   const [activeTab, setActiveTab] = useState<string>("lectures");
-  const colorScheme = useColorScheme(); // Detect light/dark mode
-
-  // Calculate total and completed lessons
-  const calculateProgress = () => {
-    if (!course?.modules)
-      return { totalLessons: 0, completedLessons: 0, progress: 0 };
-
-    const totalLessons = course.modules.reduce(
-      (sum, module) => sum + module.lessons.length,
-      0
-    );
-    const completedLessons = course.modules.reduce(
-      (sum, module) =>
-        sum +
-        module.lessons.filter((lesson) =>
-          lesson.progress.some((p) => p.completed)
-        ).length,
-      0
-    );
-    const progress =
-      totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
-    return { totalLessons, completedLessons, progress };
-  };
-
-  const { totalLessons, completedLessons, progress } = calculateProgress();
+  const [moreSection, setMoreSection] = useState<string>("about");
+  const { getToken } = useAuth();
 
   const tabs = [
     { id: "lectures", title: "Lectures" },
@@ -111,44 +87,25 @@ const ContentTabs = ({
   ];
 
   const moreTabOptions = [
-    {
-      id: "about",
-      title: "About this Course",
-      icon: BookOpen,
-      screen: "/(tabs)/AboutCourseScreen",
-    },
-    {
-      id: "certification",
-      title: "Course Certification",
-      icon: Award,
-      screen: "/(tabs)/certification",
-    },
-    {
-      id: "share",
-      title: "Share this Course",
-      icon: Share,
-      screen: "/(tabs)/share",
-    },
-    {
-      id: "resources",
-      title: "Resources",
-      icon: FileText,
-      screen: "/(tabs)/resources",
-    },
-    {
-      id: "discussion",
-      title: "Discussion",
-      icon: MessageSquare,
-      screen: "/(tabs)/discussion",
-    },
+    { id: "about", title: "About this Course", icon: BookOpen },
+    { id: "certification", title: "Course Certification", icon: Award },
+    { id: "share", title: "Share this Course", icon: Share },
+    { id: "resources", title: "Resources", icon: FileText },
+    { id: "discussion", title: "Discussion", icon: MessageSquare },
   ];
 
+  // Derive lessonId from course, activeModule, and activeLesson
   const lessonId =
     course?.modules[activeModule]?.lessons[activeLesson]?.id || "";
 
+  // API functions
   const generateQuiz = async () => {
-    if (!course?.id) throw new Error("Missing courseId");
-    if (!lessonId) throw new Error("Missing lessonId");
+    if (!course?.id) {
+      throw new Error("Missing courseId");
+    }
+    if (!lessonId) {
+      throw new Error("Missing lessonId");
+    }
     try {
       const token = await getToken();
       const response = await fetch(
@@ -181,7 +138,9 @@ const ContentTabs = ({
   };
 
   const submitQuiz = async (quizId: string, answers: any) => {
-    if (!course?.id) throw new Error("Missing courseId");
+    if (!course?.id) {
+      throw new Error("Missing courseId");
+    }
     try {
       const token = await getToken();
       const response = await fetch(
@@ -215,59 +174,43 @@ const ContentTabs = ({
 
   const renderMore = () => (
     <View style={styles.tabContent}>
-      <FlatList
-        data={moreTabOptions}
-        renderItem={({ item }) => (
+      <ScrollView contentContainerStyle={styles.moreOptionsContainer}>
+        {moreTabOptions.map((option) => (
           <TouchableOpacity
+            key={option.id}
             style={styles.moreOptionItem}
-            onPress={() => {
-              if (!course) {
-                console.warn(
-                  "Cannot navigate to",
-                  item.screen,
-                  ": Course is undefined"
-                );
-                return;
-              }
-              router.push({
-                pathname: item.screen as any,
-                params: {
-                  course: JSON.stringify({
-                    id: course.id,
-                    slug: course.slug,
-                    title: course.title,
-                    duration: course.duration || 0,
-                    totalLessons: course.modules.reduce(
-                      (sum, module) => sum + module.lessons.length,
-                      0
-                    ),
-                  }),
-                  progress: progress.toString(),
-                },
-              });
-            }}
-            accessibilityLabel={item.title}
+            onPress={() => setMoreSection(option.id)}
           >
-            <item.icon
-              color={colorScheme === "dark" ? "#ccc" : "#666"}
-              size={20}
-              style={styles.moreOptionIcon}
-            />
-            <Text
-              style={[
-                styles.moreOptionText,
-                {
-                  color: colorScheme === "dark" ? "#fff" : "#333",
-                },
-              ]}
-            >
-              {item.title}
-            </Text>
+            <option.icon color="#ccc" size={20} style={styles.moreOptionIcon} />
+            <Text style={styles.moreOptionText}>{option.title}</Text>
           </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.moreOptionsContainer}
-      />
+        ))}
+      </ScrollView>
+      {moreSection === "about" && <AboutCourse course={course} />}
+      {moreSection === "certification" && (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderText}>
+            Course Certification (Coming Soon)
+          </Text>
+        </View>
+      )}
+      {moreSection === "share" && (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderText}>
+            Share this Course (Coming Soon)
+          </Text>
+        </View>
+      )}
+      {moreSection === "resources" && (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderText}>Resources (Coming Soon)</Text>
+        </View>
+      )}
+      {moreSection === "discussion" && (
+        <View style={styles.placeholder}>
+          <Text style={styles.placeholderText}>Discussion (Coming Soon)</Text>
+        </View>
+      )}
     </View>
   );
 
@@ -321,40 +264,18 @@ const ContentTabs = ({
   };
 
   return (
-    <View
-      style={[
-        styles.tabsContainer,
-        {
-          backgroundColor: colorScheme === "dark" ? "#1c1c1e" : "#fff",
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.tabBar,
-          {
-            backgroundColor: colorScheme === "dark" ? "#1c1c1e" : "#fff",
-            borderBottomColor: colorScheme === "dark" ? "#333" : "#e0e0e0",
-          },
-        ]}
-      >
+    <View style={styles.tabsContainer}>
+      <View style={styles.tabBar}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.id}
             onPress={() => setActiveTab(tab.id)}
             style={[styles.tabButton, activeTab === tab.id && styles.activeTab]}
-            accessibilityLabel={tab.title}
           >
             <Text
               style={[
                 styles.tabText,
                 activeTab === tab.id && styles.activeTabText,
-                {
-                  color: colorScheme === "dark" ? "#ccc" : "#666",
-                },
-                activeTab === tab.id && {
-                  color: colorScheme === "dark" ? "#fff" : "#000",
-                },
               ]}
             >
               {tab.title}
@@ -370,16 +291,19 @@ const ContentTabs = ({
 const styles = StyleSheet.create({
   tabsContainer: {
     flex: 1,
+    backgroundColor: "#1c1c1e",
   },
   tabBar: {
     flexDirection: "row",
     borderBottomWidth: 1,
+    borderBottomColor: "#333",
     paddingHorizontal: 10,
     paddingVertical: 10,
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
+    backgroundColor: "#1c1c1e",
     zIndex: 10,
   },
   tabButton: {
@@ -392,10 +316,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#a500ff",
   },
   tabText: {
+    color: "#ccc",
     fontSize: 14,
     fontWeight: "500",
   },
   activeTabText: {
+    color: "#fff",
     fontWeight: "600",
   },
   contentContainer: {
@@ -422,8 +348,20 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   moreOptionText: {
+    color: "#fff",
     fontSize: 14,
     fontWeight: "500",
+  },
+  placeholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: "#aaa",
+    textAlign: "center",
   },
 });
 

@@ -1,7 +1,6 @@
 import { Course } from "@/types/my-learning";
 import { useUser } from "@clerk/clerk-expo";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -11,34 +10,25 @@ import {
   View,
   useColorScheme,
 } from "react-native";
+import LinearGradient from "react-native-linear-gradient";
 import * as Progress from "react-native-progress";
 
 interface CertificateProps {
   course?: Course;
   progress: number;
-  source?: string;
 }
 
-export default function Certificate({
-  course,
-  progress,
-  source,
-}: CertificateProps) {
+export default function Certificate({ course, progress }: CertificateProps) {
   const { user } = useUser();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const colorScheme = useColorScheme();
   const totalLessons = course?.totalLessons || 80;
   const completedLessons = Math.floor((progress / 100) * totalLessons);
   const [fadeAnim] = useState(new Animated.Value(0)); // Animation for lock overlay
-  const handleBackPress = () => {
-    if (source === "certification") {
-      router.replace("/certification");
-    } else {
-      router.replace("/CourseLearningScreen");
-    }
-  };
+
   useEffect(() => {
     setIsUnlocked(completedLessons >= 30);
+    // Fade-in animation for lock overlay
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
@@ -81,37 +71,18 @@ export default function Certificate({
         isUnlocked ? "Certificate of Completion" : "Locked Certificate"
       }
     >
-      <View
-        style={[
-          styles.certificateCard,
-          { backgroundColor: isDark ? "#1c1c1e" : "#f5f5ff" },
-        ]}
+      <LinearGradient
+        colors={isDark ? ["#3c3c3e", "#2c2c2e"] : ["#f5f5ff", "#ffffff"]}
+        style={styles.certificateCard}
       >
-        {/* Back Icon */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => handleBackPress()}
-          accessibilityLabel="Go back"
-        >
-          <MaterialCommunityIcons
-            name="close"
-            size={24}
-            color={isDark ? "#fff" : "#a500ff"}
-          />
-        </TouchableOpacity>
-
-        {/* Header */}
+        {/* Header with Gradient Text */}
         <View style={styles.header}>
-          <View style={styles.headerBadge}>
-            <Text
-              style={[
-                styles.headerText,
-                { color: isDark ? "#fff" : "#a500ff" },
-              ]}
-            >
-              Certificate of Completion
-            </Text>
-          </View>
+          <LinearGradient
+            colors={["#a500ff", "#7b00cc"]}
+            style={styles.headerGradient}
+          >
+            <Text style={styles.headerText}>Certificate of Completion</Text>
+          </LinearGradient>
           <Text
             style={[styles.subHeaderText, { color: isDark ? "#ccc" : "#666" }]}
           >
@@ -171,14 +142,14 @@ export default function Certificate({
           />
         </View>
 
-        {/* Download Button */}
+        {/* Download Button (Placeholder) */}
         {isUnlocked && (
           <TouchableOpacity
             style={[
               styles.downloadButton,
               { backgroundColor: isDark ? "#a500ff" : "#7b00cc" },
             ]}
-            onPress={() => console.log("Download certificate")}
+            onPress={() => console.log("Download certificate")} // Placeholder
             accessibilityLabel="Download certificate"
           >
             <Text style={styles.downloadButtonText}>Download Certificate</Text>
@@ -190,7 +161,7 @@ export default function Certificate({
             />
           </TouchableOpacity>
         )}
-      </View>
+      </LinearGradient>
 
       {/* Lock Overlay */}
       {!isUnlocked && (
@@ -229,7 +200,6 @@ export default function Certificate({
 const styles = StyleSheet.create({
   container: {
     margin: 16,
-    marginTop: 80,
     borderRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -241,30 +211,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: "#a500ff",
-    position: "relative", // For absolute positioning of back button
-  },
-  backButton: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    padding: 8,
-    zIndex: 10,
   },
   header: {
     alignItems: "center",
     marginBottom: 16,
   },
-  headerBadge: {
-    backgroundColor: "transparent",
+  headerGradient: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#a500ff",
   },
   headerText: {
     fontSize: 28,
     fontWeight: "700",
+    color: "#fff",
     textAlign: "center",
   },
   subHeaderText: {

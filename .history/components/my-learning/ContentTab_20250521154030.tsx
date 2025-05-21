@@ -37,7 +37,6 @@ type Module = {
 type Course = {
   id: string;
   title: string;
-  slug?: string;
   instructor?: { name?: string };
   modules: Module[];
   description?: string;
@@ -234,7 +233,6 @@ const ContentTabs = ({
                 params: {
                   course: JSON.stringify({
                     id: course.id,
-                    slug: course.slug,
                     title: course.title,
                     duration: course.duration || 0,
                     totalLessons: course.modules.reduce(

@@ -1,7 +1,6 @@
 import { Course } from "@/types/my-learning";
 import { useUser } from "@clerk/clerk-expo";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -16,27 +15,16 @@ import * as Progress from "react-native-progress";
 interface CertificateProps {
   course?: Course;
   progress: number;
-  source?: string;
 }
 
-export default function Certificate({
-  course,
-  progress,
-  source,
-}: CertificateProps) {
+export default function Certificate({ course, progress }: CertificateProps) {
   const { user } = useUser();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const colorScheme = useColorScheme();
   const totalLessons = course?.totalLessons || 80;
   const completedLessons = Math.floor((progress / 100) * totalLessons);
   const [fadeAnim] = useState(new Animated.Value(0)); // Animation for lock overlay
-  const handleBackPress = () => {
-    if (source === "certification") {
-      router.replace("/certification");
-    } else {
-      router.replace("/CourseLearningScreen");
-    }
-  };
+
   useEffect(() => {
     setIsUnlocked(completedLessons >= 30);
     Animated.timing(fadeAnim, {
@@ -87,19 +75,6 @@ export default function Certificate({
           { backgroundColor: isDark ? "#1c1c1e" : "#f5f5ff" },
         ]}
       >
-        {/* Back Icon */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => handleBackPress()}
-          accessibilityLabel="Go back"
-        >
-          <MaterialCommunityIcons
-            name="close"
-            size={24}
-            color={isDark ? "#fff" : "#a500ff"}
-          />
-        </TouchableOpacity>
-
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerBadge}>
@@ -229,7 +204,7 @@ export default function Certificate({
 const styles = StyleSheet.create({
   container: {
     margin: 16,
-    marginTop: 80,
+    marginTop: 60,
     borderRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -241,14 +216,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: "#a500ff",
-    position: "relative", // For absolute positioning of back button
-  },
-  backButton: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    padding: 8,
-    zIndex: 10,
   },
   header: {
     alignItems: "center",

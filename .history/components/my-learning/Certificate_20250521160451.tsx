@@ -34,7 +34,7 @@ export default function Certificate({
     if (source === "certification") {
       router.replace("/certification");
     } else {
-      router.replace("/CourseLearningScreen");
+      router.back();
     }
   };
   useEffect(() => {
