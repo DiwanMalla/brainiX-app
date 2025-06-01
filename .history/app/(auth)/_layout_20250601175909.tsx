@@ -19,13 +19,9 @@ export default function AuthRoutesLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarStyle: {
-          height: 0,
           backgroundColor: "white",
         },
       }}
-    >
-      <Tabs.Screen name="sign-in" options={{ href: null }} />
-      <Tabs.Screen name="sign-up" options={{ href: null }} />
-    </Tabs>
+    ></Tabs>
   );
 }

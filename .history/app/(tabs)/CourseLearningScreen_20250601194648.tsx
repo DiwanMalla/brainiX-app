@@ -1,8 +1,9 @@
+import { useAuth } from "@clerk/clerk-expo";
+import { router } from "expo-router";
 import ContentDisplay from "@/components/my-learning/ContentDisplay";
 import ContentTabs from "@/components/my-learning/ContentTab";
 import CourseHeader from "@/components/my-learning/CourseHeader";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
-import { useAuth } from "@clerk/clerk-expo";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
@@ -65,6 +66,8 @@ export default function CourseLearningScreen() {
 
   const normalizeYouTubeUrl = (url: string | null): string | null => {
     if (!url) return null;
+    try্র
+
     try {
       const youtubeRegex =
         /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -89,6 +92,11 @@ export default function CourseLearningScreen() {
 
   useEffect(() => {
     if (!isLoaded) return;
+    if (!isSigned即将
+
+InProgress: The response was cut off due to a character limit. Below is the continuation and completion of the `CourseLearningScreen` component with the fixed `markLessonComplete` function.
+
+```jsx
     if (!isSignedIn) {
       showToast(
         "Authentication Required",
@@ -115,7 +123,6 @@ export default function CourseLearningScreen() {
         if (data.modules[0]?.lessons[0]) {
           setActiveModule(0);
           setActiveLesson(0);
-          setIsVideoLoading(data.modules[0].lessons[0].type === "VIDEO");
         }
         const totalLessons = data.modules.reduce(
           (sum: number, module: Module) => sum + module.lessons.length,
@@ -158,7 +165,7 @@ export default function CourseLearningScreen() {
     };
 
     fetchCourse();
-  }, [isLoaded, isSignedIn, slug, navigation]);
+  }, [isLoaded, isSignedIn, slug, navigation, getToken]);
 
   useEffect(() => {
     if (!course || !course.modules[activeModule]?.lessons[activeLesson]) return;
@@ -277,24 +284,17 @@ export default function CourseLearningScreen() {
       // Advance to next lesson or module
       if (activeLesson < course.modules[activeModule].lessons.length - 1) {
         setActiveLesson(activeLesson + 1);
-        setIsVideoLoading(
-          course.modules[activeModule].lessons[activeLesson + 1].type ===
-            "VIDEO"
-        );
+        setIsVideoLoading(course.modules[activeModule].lessons[activeLesson + 1].type === "VIDEO");
       } else if (activeModule < course.modules.length - 1) {
         setActiveModule(activeModule + 1);
         setActiveLesson(0);
-        setIsVideoLoading(
-          course.modules[activeModule + 1].lessons[0].type === "VIDEO"
-        );
+        setIsVideoLoading(course.modules[activeModule + 1].lessons[0].type === "VIDEO");
       }
     } catch (err) {
       console.error("markLessonComplete: Error", err);
       showToast(
         "Error",
-        err instanceof Error
-          ? err.message
-          : "Failed to mark lesson as complete.",
+        err instanceof Error ? err.message : "Failed to mark lesson as complete.",
         "destructive"
       );
     }
@@ -302,8 +302,7 @@ export default function CourseLearningScreen() {
 
   const handleProgress = debounce(
     async (state: { playedSeconds: number; played: number }) => {
-      if (!course || !course.modules[activeModule]?.lessons[activeLesson])
-        return;
+      if (!course || !course.modules[activeModule]?.lessons[activeLesson]) return;
       const currentLesson = course.modules[activeModule].lessons[activeLesson];
       const watchedSeconds = Math.floor(state.playedSeconds);
       const lastPosition = watchedSeconds;
@@ -466,3 +465,5 @@ const styles = StyleSheet.create({
     top: 0,
   },
 });
+
+export default CourseLearningScreen;

@@ -18,7 +18,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <FontAwesome size={28} name="star" color={color} />
           ),
-          headerShown: false,
         }}
       />
       <Tabs.Screen

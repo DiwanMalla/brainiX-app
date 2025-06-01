@@ -2,7 +2,7 @@ import ContentDisplay from "@/components/my-learning/ContentDisplay";
 import ContentTabs from "@/components/my-learning/ContentTab";
 import CourseHeader from "@/components/my-learning/CourseHeader";
 import { Course, Lesson, Module, Note } from "@/types/my-learning";
-import { useAuth } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { StackNavigationProp } from "@react-navigation/stack";
 import Constants from "expo-constants";
@@ -40,6 +40,8 @@ export default function CourseLearningScreen() {
   const route = useRoute();
   const { slug } = route.params as { slug: string };
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
+
   const [course, setCourse] = useState<Course | null>(null);
   const [activeModule, setActiveModule] = useState(0);
   const [activeLesson, setActiveLesson] = useState(0);
@@ -48,7 +50,6 @@ export default function CourseLearningScreen() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
 
   const showToast = (
     title: string,
@@ -89,7 +90,7 @@ export default function CourseLearningScreen() {
 
   useEffect(() => {
     if (!isLoaded) return;
-    if (!isSignedIn) {
+    if (!isSignedIn || !user) {
       showToast(
         "Authentication Required",
         "Please sign in to access this course.",
@@ -115,7 +116,6 @@ export default function CourseLearningScreen() {
         if (data.modules[0]?.lessons[0]) {
           setActiveModule(0);
           setActiveLesson(0);
-          setIsVideoLoading(data.modules[0].lessons[0].type === "VIDEO");
         }
         const totalLessons = data.modules.reduce(
           (sum: number, module: Module) => sum + module.lessons.length,
@@ -184,121 +184,7 @@ export default function CourseLearningScreen() {
     };
 
     fetchNotes();
-  }, [course, activeModule, activeLesson, getToken]);
-
-  const markLessonComplete = async () => {
-    if (!course || !course.modules[activeModule]?.lessons[activeLesson]) {
-      showToast("Error", "No lesson selected.", "destructive");
-      return;
-    }
-
-    const currentLesson = course.modules[activeModule].lessons[activeLesson];
-
-    // Check if lesson is already completed
-    if (currentLesson.progress[0]?.completed) {
-      showToast(
-        "Lesson Already Completed",
-        `${currentLesson.title} is already marked as complete.`,
-        "default"
-      );
-      return;
-    }
-
-    try {
-      const token = await getToken();
-      const res = await fetch(`${API_BASE_URL}/api/courses/progress`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          courseId: course.id,
-          lessonId: currentLesson.id,
-          completed: true,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to update progress");
-      }
-
-      // Update local state
-      const updatedLesson = {
-        ...currentLesson,
-        progress: currentLesson.progress.length
-          ? [
-              {
-                ...currentLesson.progress[0],
-                completed: true,
-                completedAt: new Date().toISOString(),
-              },
-            ]
-          : [{ completed: true, completedAt: new Date().toISOString() }],
-      };
-
-      setCourse((prev) => {
-        if (!prev) return prev;
-        const newModules = [...prev.modules];
-        newModules[activeModule] = {
-          ...newModules[activeModule],
-          lessons: newModules[activeModule].lessons.map((lesson, lIdx) =>
-            lIdx === activeLesson ? updatedLesson : lesson
-          ),
-        };
-        return { ...prev, modules: newModules };
-      });
-
-      // Recalculate progress
-      const totalLessons = course.modules.reduce(
-        (sum, module) => sum + module.lessons.length,
-        0
-      );
-      const completedLessons = course.modules.reduce(
-        (sum, module) =>
-          sum +
-          module.lessons.filter((lesson) => lesson.progress[0]?.completed)
-            .length,
-        0
-      );
-      const newProgress =
-        totalLessons > 0 ? ((completedLessons + 1) / totalLessons) * 100 : 0;
-      setProgress(newProgress);
-
-      showToast(
-        "Lesson Completed",
-        `${currentLesson.title} marked as complete! Progress: ${Math.round(
-          newProgress
-        )}%`,
-        "default"
-      );
-
-      // Advance to next lesson or module
-      if (activeLesson < course.modules[activeModule].lessons.length - 1) {
-        setActiveLesson(activeLesson + 1);
-        setIsVideoLoading(
-          course.modules[activeModule].lessons[activeLesson + 1].type ===
-            "VIDEO"
-        );
-      } else if (activeModule < course.modules.length - 1) {
-        setActiveModule(activeModule + 1);
-        setActiveLesson(0);
-        setIsVideoLoading(
-          course.modules[activeModule + 1].lessons[0].type === "VIDEO"
-        );
-      }
-    } catch (err) {
-      console.error("markLessonComplete: Error", err);
-      showToast(
-        "Error",
-        err instanceof Error
-          ? err.message
-          : "Failed to mark lesson as complete.",
-        "destructive"
-      );
-    }
-  };
+  }, [course, activeModule, activeLesson]);
 
   const handleProgress = debounce(
     async (state: { playedSeconds: number; played: number }) => {
@@ -388,8 +274,8 @@ export default function CourseLearningScreen() {
               setActiveLesson={setActiveLesson}
               notes={notes}
               setNotes={setNotes}
-              markLessonComplete={markLessonComplete}
-              setIsVideoLoading={setIsVideoLoading}
+              markLessonComplete={() => {}}
+              setIsVideoLoading={() => {}}
             />
           </View>
         </ScrollView>

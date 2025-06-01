@@ -158,7 +158,7 @@ export default function CourseLearningScreen() {
     };
 
     fetchCourse();
-  }, [isLoaded, isSignedIn, slug, navigation]);
+  }, [isLoaded, isSignedIn, slug, navigation, getToken]);
 
   useEffect(() => {
     if (!course || !course.modules[activeModule]?.lessons[activeLesson]) return;

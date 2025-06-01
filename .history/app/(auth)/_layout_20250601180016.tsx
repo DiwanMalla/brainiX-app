@@ -19,7 +19,7 @@ export default function AuthRoutesLayout() {
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
         tabBarStyle: {
-          height: 0,
+          height: 60,
           backgroundColor: "white",
         },
       }}
