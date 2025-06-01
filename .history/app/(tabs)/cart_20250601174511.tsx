@@ -1,21 +1,21 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import axios, { isAxiosError } from "axios";
-import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 const HEADER_HEIGHT = 60; // For consistency with SearchScreen
-const CART_ITEM_HEIGHT = 300; // Approximate height per item
-const FOOTER_HEIGHT = 80; // For total and checkout button
+const CART_ITEM_HEIGHT = 300; // Fixed height per item
+const BUTTON_HEIGHT = 60; // For buttons and total
 
 interface Instructor {
   name: string;
@@ -93,7 +93,7 @@ const Cart = () => {
           addedAt: item.addedAt,
           bestseller: item.bestseller || false,
           certificateAvailable: item.certificateAvailable || false,
-          featured: item.favored || false,
+          featured: item.featured || false,
           published: item.published || false,
           subtitlesLanguages: item.subtitlesLanguages || [],
           tags: item.tags || [],
@@ -135,7 +135,7 @@ const Cart = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log(`Deleted item ${itemId} from cart`);
-      setRefreshCart((prev) => prev + 1);
+      setRefreshCart((prev) => prev + 1); // Trigger refetch
     } catch (err) {
       if (isAxiosError(err)) {
         console.error(
@@ -164,7 +164,7 @@ const Cart = () => {
       const totalPrice = cartItems.reduce((sum, item) => {
         return sum + (item.discountPrice ?? item.price ?? 0);
       }, 0);
-      router.push("/checkout");
+      navigation.navigate("Checkout", { cartItems, totalPrice });
     }
   };
 
@@ -188,40 +188,38 @@ const Cart = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {cartItems.map((item) => (
-          <View key={item.id} style={styles.cartItem}>
-            <Image source={{ uri: item.thumbnail }} style={styles.image} />
-            <View style={styles.itemDetails}>
-              <Text style={styles.title} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <Text style={styles.instructor}>By {item.instructor?.name}</Text>
-              <Text style={styles.shortDescription} numberOfLines={2}>
-                {item.shortDescription}
-              </Text>
-              <Text style={styles.level}>Level: {item.level}</Text>
-              <Text style={styles.price}>
-                $
-                {item.discountPrice != null
-                  ? item.discountPrice.toFixed(2)
-                  : "N/A"}{" "}
-                {item.price != null && item.discountPrice != null && (
-                  <Text style={styles.strikeThrough}>
-                    ${item.price.toFixed(2)}
-                  </Text>
-                )}
-              </Text>
-              <Pressable
-                style={styles.deleteButton}
-                onPress={() => deleteCartItem(item.id)}
-              >
-                <Text style={styles.deleteButtonText}>Remove</Text>
-              </Pressable>
-            </View>
+      {cartItems.slice(0, 2).map((item) => (
+        <View key={item.id} style={styles.cartItem}>
+          <Image source={{ uri: item.thumbnail }} style={styles.image} />
+          <View style={styles.itemDetails}>
+            <Text style={styles.title} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <Text style={styles.instructor}>By {item.instructor?.name}</Text>
+            <Text style={styles.shortDescription} numberOfLines={2}>
+              {item.shortDescription}
+            </Text>
+            <Text style={styles.level}>Level: {item.level}</Text>
+            <Text style={styles.price}>
+              $
+              {item.discountPrice != null
+                ? item.discountPrice.toFixed(2)
+                : "N/A"}{" "}
+              {item.price != null && item.discountPrice != null && (
+                <Text style={styles.strikeThrough}>
+                  ${item.price.toFixed(2)}
+                </Text>
+              )}
+            </Text>
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => deleteCartItem(item.id)}
+            >
+              <Text style={styles.deleteButtonText}>Remove</Text>
+            </Pressable>
           </View>
-        ))}
-      </ScrollView>
+        </View>
+      ))}
       <View style={styles.footer}>
         <Text style={styles.totalPrice}>Total: ${totalPrice.toFixed(2)}</Text>
         <Pressable
@@ -239,18 +237,16 @@ const Cart = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
-  },
-  scrollContent: {
+    backgroundColor: "#000", // Match SearchScreen dark theme
     padding: 16,
-    paddingBottom: FOOTER_HEIGHT + 16, // Space for footer
+    height: SCREEN_HEIGHT,
   },
   loader: { flex: 1, justifyContent: "center" },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 18, color: "#888" },
   cartItem: {
     flexDirection: "row",
-    minHeight: CART_ITEM_HEIGHT,
+    height: CART_ITEM_HEIGHT,
     backgroundColor: "#111",
     borderRadius: 8,
     marginBottom: 16,
@@ -311,19 +307,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: FOOTER_HEIGHT,
+    height: BUTTON_HEIGHT,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#111",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#333",
+    marginTop: 16,
   },
   totalPrice: {
     fontSize: 18,

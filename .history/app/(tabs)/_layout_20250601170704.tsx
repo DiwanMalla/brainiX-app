@@ -68,20 +68,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="cart"
-        options={{
-          title: "Cart",
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "cart" : "cart-outline"}
-              size={24}
-              color={color}
-            />
-          ),
-        }}
-      />
-
       <Tabs.Screen name="AllCategories" options={{ href: null }} />
       <Tabs.Screen name="CategoryDetails" options={{ href: null }} />
       <Tabs.Screen name="CourseDetailsScreen" options={{ href: null }} />

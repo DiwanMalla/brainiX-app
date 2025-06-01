@@ -1,7 +1,6 @@
 import { useAuth } from "@clerk/clerk-expo";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import axios, { isAxiosError } from "axios";
-import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -164,7 +163,7 @@ const Cart = () => {
       const totalPrice = cartItems.reduce((sum, item) => {
         return sum + (item.discountPrice ?? item.price ?? 0);
       }, 0);
-      router.push("/checkout");
+      navigation.navigate("Checkout", { cartItems, totalPrice });
     }
   };
 
