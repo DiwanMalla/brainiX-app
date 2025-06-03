@@ -278,11 +278,11 @@ export default function SearchScreen() {
   };
 
   const handleCategoryPress = (slug: string) => {
-    router.push({ pathname: "/(tabs)/CategoryDetails", params: { slug } });
+    router.push({ pathname: "/(tabs)/CourseDetailsScreen", params: { slug } });
   };
 
   const handleCoursePress = (slug: string) => {
-    router.push({ pathname: "/(tabs)/CategoryDetails", params: { slug } });
+    router.push({ pathname: "/(tabs)/CourseDetailsScreen", params: { slug } });
   };
 
   const handleSuggestionPress = (suggestion: Suggestion) => {

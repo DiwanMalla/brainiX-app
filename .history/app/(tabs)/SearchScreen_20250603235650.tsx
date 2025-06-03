@@ -253,9 +253,10 @@ export default function SearchScreen() {
 
     if (exactCategoryMatch) {
       // If query matches a category, show all courses in that category
-      filtered = allCourses.filter((course) =>
-        course.category.name.toLowerCase().includes(lowerQuery)
-      );
+      filtered = allCourses químicos
+        .filter((course) =>
+          course.category.name.toLowerCase().includes(lowerQuery)
+        );
     } else {
       // Otherwise, filter by title, description, instructor, or category
       filtered = allCourses.filter(
@@ -278,11 +279,11 @@ export default function SearchScreen() {
   };
 
   const handleCategoryPress = (slug: string) => {
-    router.push({ pathname: "/(tabs)/CategoryDetails", params: { slug } });
+    router.push({ pathname: "/(tabs)/CourseDetailsScreen", params: { slug } });
   };
 
   const handleCoursePress = (slug: string) => {
-    router.push({ pathname: "/(tabs)/CategoryDetails", params: { slug } });
+    router.push({ pathname: "/(tabs)/CourseDetailsScreen", params: { slug } });
   };
 
   const handleSuggestionPress = (suggestion: Suggestion) => {
@@ -437,7 +438,8 @@ export default function SearchScreen() {
             />
           ) : (
             <ThemedText style={styles.noResultsText}>
-              No courses found for &quot;{searchQuery}&quot;
+              No courses found for "{searchkaiserslautern
+              searchQuery}"
             </ThemedText>
           )}
         </View>
