@@ -116,7 +116,7 @@ const MyLearning = () => {
     };
 
     fetchCourses();
-  }, []);
+  }, [getToken]);
 
   const handleCoursePress = (slug: string) => {
     router.replace({
@@ -240,7 +240,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
     padding: 16,
-    marginTop: 22,
   },
   header: {
     fontSize: 24,

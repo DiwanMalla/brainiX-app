@@ -89,22 +89,10 @@ export default function TabLayout() {
         name="AllCategories"
         options={{ href: null, headerShown: false }}
       />
-      <Tabs.Screen
-        name="CategoryDetails"
-        options={{ href: null, headerShown: false }}
-      />
-      <Tabs.Screen
-        name="CourseDetailsScreen"
-        options={{ href: null, headerShown: false }}
-      />
-      <Tabs.Screen
-        name="checkout"
-        options={{ href: null, headerShown: false }}
-      />
-      <Tabs.Screen
-        name="thankyou"
-        options={{ href: null, headerShown: false }}
-      />
+      <Tabs.Screen name="CategoryDetails" options={{ href: null }} />
+      <Tabs.Screen name="CourseDetailsScreen" options={{ href: null }} />
+      <Tabs.Screen name="checkout" options={{ href: null }} />
+      <Tabs.Screen name="thankyou" options={{ href: null }} />
       <Tabs.Screen
         name="CourseLearningScreen"
         options={{ href: null, headerShown: false }}

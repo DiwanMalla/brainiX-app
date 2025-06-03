@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
     padding: 16,
-    marginTop: 22,
+    marginTop: 16,
   },
   header: {
     fontSize: 24,

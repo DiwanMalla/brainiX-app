@@ -2,7 +2,6 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import axios, { isAxiosError } from "axios";
 import { router } from "expo-router";
-import { Star } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,8 +15,8 @@ import {
 } from "react-native";
 
 const HEADER_HEIGHT = 60;
-const CART_ITEM_HEIGHT = 180; // Slightly reduced for compact, scannable cards
-const FOOTER_HEIGHT = 100; // Increased for larger touch area
+const CART_ITEM_HEIGHT = 300;
+const FOOTER_HEIGHT = 80;
 
 interface Instructor {
   name: string;
@@ -33,7 +32,7 @@ interface CartItem {
   instructor?: Instructor;
   rating: number;
   totalStudents: number;
-  duration: number; // In hours
+  duration: number;
   level: string;
   totalLessons: number;
   totalModules: number;
@@ -147,7 +146,7 @@ const Cart = () => {
       await axios.delete("https://braini-x-one.vercel.app/api/cart", {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000,
-        data: { courseId },
+        data: { courseId }, // Send courseId in the request body
       });
 
       Alert.alert("Success", "Item removed from cart.");
@@ -192,30 +191,9 @@ const Cart = () => {
     }
   };
 
-  // Render stars based on rating
-  const renderStars = (rating: number = 0) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    for (let i = 0; i < 5; i++) {
-      stars.push(
-        <Star
-          key={i}
-          size={18}
-          color="#FFD700"
-          fill={i < fullStars ? "#FFD700" : "none"}
-          style={styles.star}
-        />
-      );
-    }
-    return stars;
-  };
-
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007bff" />
-        <Text style={styles.loadingText}>Loading your cart...</Text>
-      </View>
+      <ActivityIndicator style={styles.loader} size="large" color="#007bff" />
     );
   }
 
@@ -226,7 +204,6 @@ const Cart = () => {
         <Pressable
           style={styles.retryButton}
           onPress={() => setRefreshCart((prev) => prev + 1)}
-          accessibilityLabel="Retry loading cart"
         >
           <Text style={styles.retryButtonText}>Retry</Text>
         </Pressable>
@@ -237,21 +214,7 @@ const Cart = () => {
   if (!cartItems || cartItems.length === 0) {
     return (
       <View style={styles.center}>
-        <Image
-          source={{ uri: "https://via.placeholder.com/150?text=Empty+Cart" }}
-          style={styles.emptyImage}
-        />
-        <Text style={styles.emptyText}>Your cart is empty.</Text>
-        <Text style={styles.emptySubText}>
-          Browse our courses and start learning today!
-        </Text>
-        <Pressable
-          style={styles.exploreButton}
-          onPress={() => router.push("/(tabs)/SearchScreen")}
-          accessibilityLabel="Explore courses"
-        >
-          <Text style={styles.exploreButtonText}>Explore Courses</Text>
-        </Pressable>
+        <Text style={styles.emptyText}>Cart is empty.</Text>
       </View>
     );
   }
@@ -262,83 +225,53 @@ const Cart = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Cart ({cartItems.length})</Text>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {cartItems.map((item) => (
-          <Pressable
-            key={item.id}
-            style={({ pressed }) => [
-              styles.cartItem,
-              pressed && styles.cartItemPressed,
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/CourseDetailsScreen",
-                params: { slug: item.slug },
-              })
-            }
-            accessibilityLabel={`View details for ${item.title}`}
-          >
+          <View key={item.id} style={styles.cartItem}>
             <Image source={{ uri: item.thumbnail }} style={styles.image} />
             <View style={styles.itemDetails}>
               <Text style={styles.title} numberOfLines={2}>
                 {item.title}
               </Text>
               <Text style={styles.instructor}>By {item.instructor?.name}</Text>
-              <View style={styles.ratingContainer}>
-                {renderStars(item.rating)}
-                <Text style={styles.ratingText}>
-                  ({item.rating.toFixed(1)})
-                </Text>
-              </View>
-              <Text style={styles.duration}>
-                {item.duration} {item.duration === 1 ? "hour" : "hours"}
+              <Text style={styles.shortDescription} numberOfLines={2}>
+                {item.shortDescription}
               </Text>
-              <View style={styles.priceContainer}>
-                <Text style={styles.price}>
-                  $
-                  {item.discountPrice != null
-                    ? item.discountPrice.toFixed(2)
-                    : item.price != null
-                    ? item.price.toFixed(2)
-                    : "N/A"}
-                </Text>
+              <Text style={styles.level}>Level: {item.level}</Text>
+              <Text style={styles.price}>
+                $
+                {item.discountPrice != null
+                  ? item.discountPrice.toFixed(2)
+                  : item.price != null
+                  ? item.price.toFixed(2)
+                  : "N/A"}{" "}
                 {item.price != null && item.discountPrice != null && (
                   <Text style={styles.strikeThrough}>
                     ${item.price.toFixed(2)}
                   </Text>
                 )}
-              </View>
+              </Text>
               <Pressable
-                style={({ pressed }) => [
-                  styles.deleteButton,
-                  pressed && styles.buttonPressed,
-                ]}
+                style={styles.deleteButton}
                 onPress={() => deleteCartItem(item.id)}
-                accessibilityLabel={`Remove ${item.title} from cart`}
               >
                 <Text style={styles.deleteButtonText}>Remove</Text>
               </Pressable>
             </View>
-          </Pressable>
+          </View>
         ))}
       </ScrollView>
       <View style={styles.footer}>
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalLabel}>Total:</Text>
-          <Text style={styles.totalPrice}>${totalPrice.toFixed(2)}</Text>
-        </View>
+        <Text style={styles.totalPrice}>Total: ${totalPrice.toFixed(2)}</Text>
         <Pressable
-          style={({ pressed }) => [
+          style={[
             styles.checkoutButton,
             !cartItems.length && styles.disabledButton,
-            pressed && cartItems.length && styles.buttonPressed,
           ]}
           onPress={proceedToCheckout}
           disabled={!cartItems.length}
-          accessibilityLabel="Proceed to checkout"
         >
-          <Text style={styles.checkoutButtonText}>Checkout</Text>
+          <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
         </Pressable>
       </View>
     </View>
@@ -349,73 +282,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
-    padding: 16,
-    marginTop: HEADER_HEIGHT + 22, // Adjusted for header height
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
   },
   scrollContent: {
-    paddingBottom: FOOTER_HEIGHT + 20,
+    padding: 16,
+    paddingBottom: FOOTER_HEIGHT + 16,
   },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#888",
-    marginTop: 10,
-  },
-  emptyImage: {
-    width: 150,
-    height: 150,
-    marginBottom: 20,
-    opacity: 0.7,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 10,
-  },
-  emptySubText: {
-    fontSize: 16,
-    color: "#888",
-    marginBottom: 20,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
-  exploreButton: {
-    backgroundColor: "#007bff",
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    elevation: 2,
-  },
-  exploreButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  loader: { flex: 1, justifyContent: "center" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  emptyText: { fontSize: 18, color: "#888" },
   errorText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#f44336",
     textAlign: "center",
-    marginBottom: 20,
-    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   retryButton: {
     backgroundColor: "#007bff",
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    elevation: 2,
+    padding: 10,
+    borderRadius: 4,
   },
   retryButtonText: {
     color: "#fff",
@@ -426,90 +310,63 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     minHeight: CART_ITEM_HEIGHT,
     backgroundColor: "#111",
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 16,
-    overflow: "hidden",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  cartItemPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.98 }],
+    padding: 12,
   },
   image: {
-    width: 100,
-    height: 100,
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    marginRight: 12,
   },
   itemDetails: {
     flex: 1,
-    padding: 16,
     justifyContent: "space-between",
   },
   title: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "bold",
     color: "#fff",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   instructor: {
     fontSize: 14,
     color: "#999",
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
+  shortDescription: {
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 4,
   },
-  star: {
-    marginRight: 4,
-  },
-  ratingText: {
-    fontSize: 14,
+  level: {
+    fontSize: 12,
+    fontWeight: "600",
     color: "#fff",
-    marginLeft: 6,
-  },
-  duration: {
-    fontSize: 14,
-    color: "#999",
-    marginBottom: 6,
-  },
-  priceContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   price: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
     color: "#007bff",
-    marginRight: 8,
+    marginBottom: 4,
   },
   strikeThrough: {
-    fontSize: 16,
-    color: "#999",
     textDecorationLine: "line-through",
+    color: "#999",
+    fontSize: 14,
   },
   deleteButton: {
     backgroundColor: "#f44336",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    padding: 8,
+    borderRadius: 4,
     alignSelf: "flex-start",
   },
   deleteButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
-  },
-  buttonPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.95 }],
   },
   footer: {
     position: "absolute",
@@ -521,31 +378,20 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#111",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: "#333",
-    elevation: 5,
-  },
-  totalContainer: {
-    flexDirection: "column",
-  },
-  totalLabel: {
-    fontSize: 16,
-    color: "#999",
-    marginBottom: 4,
   },
   totalPrice: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     color: "#fff",
   },
   checkoutButton: {
     backgroundColor: "#007bff",
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    elevation: 2,
+    padding: 12,
+    borderRadius: 4,
   },
   disabledButton: {
     backgroundColor: "#555",

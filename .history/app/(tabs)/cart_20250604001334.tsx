@@ -350,7 +350,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#000",
     padding: 16,
-    marginTop: HEADER_HEIGHT + 22, // Adjusted for header height
   },
   header: {
     fontSize: 28,
